@@ -12,7 +12,8 @@ function getApiBaseUrl() {
   if (configuredBaseUrl === undefined || configuredBaseUrl === null) {
     return "";
   }
-  return String(configuredBaseUrl).replace(/\/$/, "");
+
+  return String(configuredBaseUrl).trim().replace(/\/+$/, "");
 }
 
 export async function apiRequest(path, options = {}) {
