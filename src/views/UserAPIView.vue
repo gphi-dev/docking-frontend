@@ -1,31 +1,10 @@
 <script setup>
 import { onMounted, ref } from "vue";
-import { useAuthStore } from "../stores/auth";
 import { apiRequest } from "../api/http";
 
-// 1. Initialize the auth store
-const authStore = useAuthStore();
-
-// Separate state for the two different tables
 const usersmobile = ref([]);
-const admins = ref([]); 
-
 const loadError = ref("");
 const isLoadingMobile = ref(true);
-
-function formatDateTime(isoString) {
-  if (!isoString) {
-    return "—";
-  }
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) {
-    return isoString;
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 async function loadUsersmobile() {
   loadError.value = "";
@@ -70,11 +49,11 @@ onMounted(() => {
           <tbody class="divide-y divide-slate-100">
             
             <tr v-if="isLoadingMobile">
-              <td colspan="2" class="px-4 py-10 text-center text-slate-500">Loading…</td>
+              <td colspan="3" class="px-4 py-10 text-center text-slate-500">Loading…</td>
             </tr>
             
             <tr v-else-if="usersmobile.length === 0">
-              <td colspan="2" class="px-4 py-10 text-center text-slate-500">No mobile users found.</td>
+              <td colspan="3" class="px-4 py-10 text-center text-slate-500">No mobile users found.</td>
             </tr>
             
             <tr v-for="user in usersmobile" :key="user.id" class="hover:bg-slate-50/80">
@@ -83,7 +62,7 @@ onMounted(() => {
                 {{ user.game_id }}
               </td>
               <td class="px-4 py-3 text-slate-600">
-                {{ user.game_name }}
+                {{ user.game?.name || "—" }}
               </td>
               <td class="px-4 py-3 font-semibold text-slate-900">
                 {{ user.phone }}
