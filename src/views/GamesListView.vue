@@ -36,6 +36,11 @@ async function loadGames() {
 }
 
 function openGameRow(gameId) {
+  if (!gameId) {
+    // Prevent navigation to /games/undefined
+    console.warn("Missing game id, aborting navigation");
+    return;
+  }
   router.push({ name: "game-detail", params: { gameId: String(gameId) } });
 }
 
@@ -79,8 +84,8 @@ onMounted(() => {
               class="cursor-pointer transition hover:bg-sky-50/60"
               role="link"
               tabindex="0"
-              @click="openGameRow(game.id)"
-              @keydown.enter.prevent="openGameRow(game.id)">
+              @click="openGameRow(game.slug)"
+              @keydown.enter.prevent="openGameRow(game.slug)">
               <td class="px-4 py-3 font-semibold text-slate-900">
                 {{ game.game_id || "—" }}
               </td>

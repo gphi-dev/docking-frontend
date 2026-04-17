@@ -24,7 +24,8 @@ const isLoading = ref(true);
 const isSubscribersLoading = ref(false);
 const isUsermobilesLoading = ref(false);
 
-const numericGameId = computed(() => Number(props.gameId));
+// props.gameId is treated as a slug by the router
+// const numericGameId = computed(() => Number(props.gameId));
 
 const subscriberRangeLabel = computed(() => {
   if (subscribersTotal.value === 0) {
@@ -49,29 +50,46 @@ function formatDateTime(isoString) {
   }).format(date);
 }
 
+// async function loadGame() {
+//   const gamePayload = await apiRequest(`/api/games/${numericGameId.value}`);
+//   game.value = gamePayload;
+// }
+
 async function loadGame() {
-  const gamePayload = await apiRequest(`/api/games/${numericGameId.value}`);
+  // props.gameId is technically your slug now based on the router params
+  const gamePayload = await apiRequest(`/api/games/${props.gameId}`);
   game.value = gamePayload;
 }
 
 async function loadSubscribers() {
   isSubscribersLoading.value = true;
   try {
+    // Safety check: Ensure the game object loaded and has a game_id
+    if (!game.value || !game.value.game_id) {
+      subscribers.value = [];
+      subscribersTotal.value = 0;
+      subscribersTotalPages.value = 1;
+      return;
+    }
+
     const queryParameters = new URLSearchParams({
       page: String(currentPage.value),
       pageSize: String(SUBSCRIBER_PAGE_SIZE),
     });
+
+    // We MUST pass game.value.game_id (e.g., 'PH-001-2026'), NOT props.gameId (the slug)
     const subscribersPayload = await apiRequest(
-      `/api/subscribers/games/${numericGameId.value}?${queryParameters.toString()}`,
+      `/api/subscribers/games/${game.value.game_id}?${queryParameters.toString()}`,
     );
+
     subscribers.value = Array.isArray(subscribersPayload.items) ? subscribersPayload.items : [];
-    subscribersTotal.value =
-      typeof subscribersPayload.total === "number" ? subscribersPayload.total : 0;
-    subscribersTotalPages.value =
-      typeof subscribersPayload.totalPages === "number" ? subscribersPayload.totalPages : 1;
+    subscribersTotal.value = typeof subscribersPayload.total === "number" ? subscribersPayload.total : 0;
+    subscribersTotalPages.value = typeof subscribersPayload.totalPages === "number" ? subscribersPayload.totalPages : 1;
     if (typeof subscribersPayload.page === "number") {
       currentPage.value = subscribersPayload.page;
     }
+  } catch (error) {
+     console.error("Failed to load subscribers", error)
   } finally {
     isSubscribersLoading.value = false;
   }
@@ -81,7 +99,10 @@ async function loadUsermobiles() {
   usermobilesLoadError.value = "";
   isUsermobilesLoading.value = true;
   try {
-    // const usermobilesPayload = await apiRequest(`/api/usermobile/games/${numericGameId.value}`);
+    // Safety check
+    if (!game.value || !game.value.game_id) return;
+
+    // Again, passing game.value.game_id ('PH-001-2026'), not the slug
     const usermobilesPayload = await apiRequest(`/api/usermobile/games/${game.value.game_id}`);
     usermobiles.value = Array.isArray(usermobilesPayload) ? usermobilesPayload : [];
   } catch (error) {
@@ -102,7 +123,8 @@ async function loadInitial() {
   subscribersTotal.value = 0;
   subscribersTotalPages.value = 1;
 
-  if (!Number.isFinite(numericGameId.value)) {
+  // Expecting a non-empty slug in the URL
+  if (!props.gameId || typeof props.gameId !== "string") {
     loadError.value = "Invalid game id";
     isLoading.value = false;
     return;

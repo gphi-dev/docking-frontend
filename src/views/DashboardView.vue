@@ -13,6 +13,7 @@ const isAddGameModalOpen = ref(false);
 const isEditGameModalOpen = ref(false);
 const selectedGame = ref(null);
 const deletingGameId = ref(null);
+const editingGameId = ref(null);
 
 function formatDateTime(isoString) {
   if (!isoString) {
@@ -54,12 +55,28 @@ function handleGameUpdated() {
 }
 
 function openGameDetail(gameId) {
+  if (!gameId) {
+    console.warn("Missing game id, aborting navigation");
+    return;
+  }
   router.push({ name: "game-detail", params: { gameId: String(gameId) } });
 }
 
-function openEditGameModal(game) {
-  selectedGame.value = { ...game };
-  isEditGameModalOpen.value = true;
+async function openEditGameModal(game) {
+  editingGameId.value = game.id;
+  loadError.value = "";
+
+  try {
+    // Fetch the full game object by its slug to ensure all fields,
+    // including the secret key, are available for editing.
+    const fullGame = await apiRequest(`/api/games/${game.slug}`);
+    selectedGame.value = fullGame;
+    isEditGameModalOpen.value = true;
+  } catch (error) {
+    loadError.value = error?.message || `Could not load game "${game.name}" for editing.`;
+  } finally {
+    editingGameId.value = null;
+  }
 }
 
 async function handleDeleteGame(game) {
@@ -140,7 +157,7 @@ onMounted(() => {
           <button
             type="button"
             class="flex min-w-0 flex-1 text-left"
-            @click="openGameDetail(game.game_id)"
+            @click="openGameDetail(game.slug)"
           >
             <div class="relative h-28 w-28 shrink-0 bg-slate-100">
               <img
@@ -175,9 +192,10 @@ onMounted(() => {
           <div class="flex shrink-0 flex-col justify-center gap-2 border-l border-slate-100 px-3 py-4">
             <button
               type="button"
-              class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+              class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="editingGameId === game.id"
               @click="openEditGameModal(game)">
-              Edit
+              {{ editingGameId === game.id ? "Loading..." : "Edit" }}
             </button>
             <button
               type="button"
@@ -220,8 +238,8 @@ onMounted(() => {
                 </td>
                 <td class="px-4 py-3 text-slate-700">
                   <RouterLink
-                    v-if="subscriber.game?.id"
-                    :to="{ name: 'game-detail', params: { gameId: String(subscriber.game.id) } }"
+                    v-if="subscriber.game?.game_id"
+                    :to="{ name: 'game-detail', params: { gameId: String(subscriber.game.slug) } }"
                     class="font-medium text-sky-700 hover:text-sky-600"
                   >
                     {{ subscriber.game.name }}
