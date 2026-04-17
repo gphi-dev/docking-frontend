@@ -62,8 +62,9 @@ onMounted(() => {
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
-              <th class="px-4 py-3">Phone Number</th>
               <th class="px-4 py-3">Game ID</th> 
+              <th class="px-4 py-3">Game Name</th> 
+              <th class="px-4 py-3">Phone Number</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -77,12 +78,17 @@ onMounted(() => {
             </tr>
             
             <tr v-for="user in usersmobile" :key="user.id" class="hover:bg-slate-50/80">
-              <td class="px-4 py-3 font-semibold text-slate-900">
-                {{ user.phone }}
-              </td>
+
               <td class="px-4 py-3 text-slate-600">
                 {{ user.game_id }}
               </td>
+              <td class="px-4 py-3 text-slate-600">
+                {{ user.game_name }}
+              </td>
+              <td class="px-4 py-3 font-semibold text-slate-900">
+                {{ user.phone }}
+              </td>
+              
             </tr>
             
           </tbody>
