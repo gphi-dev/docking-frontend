@@ -16,6 +16,31 @@ const selectedGameId = ref("");
 const currentPage = ref(1);
 const totalPages = ref(1);
 const totalUsers = ref(0);
+const isServerPaginated = ref(false);
+
+const displayedUsersmobile = computed(() => {
+  if (isServerPaginated.value) {
+    return usersmobile.value;
+  }
+
+  const startIndex = (currentPage.value - 1) * PAGE_SIZE;
+  return usersmobile.value.slice(startIndex, startIndex + PAGE_SIZE);
+});
+
+const gameNameById = computed(() => {
+  const entries = new Map();
+
+  for (const game of games.value) {
+    if (game?.id !== undefined && game?.id !== null) {
+      entries.set(String(game.id), game.name || "—");
+    }
+    if (game?.game_id !== undefined && game?.game_id !== null) {
+      entries.set(String(game.game_id), game.name || "—");
+    }
+  }
+
+  return entries;
+});
 
 const usersRangeLabel = computed(() => {
   if (totalUsers.value === 0) {
@@ -48,10 +73,22 @@ async function loadUsersmobile() {
     }
 
     const payload = await apiRequest(`api/usermobile?${params.toString()}`);
-    usersmobile.value = payload.items || [];
-    totalUsers.value = payload.total || 0;
-    totalPages.value = payload.totalPages || 1;
+    if (Array.isArray(payload)) {
+      isServerPaginated.value = false;
+      usersmobile.value = payload;
+      totalUsers.value = payload.length;
+      totalPages.value = Math.max(1, Math.ceil(payload.length / PAGE_SIZE));
+      return;
+    }
+
+    isServerPaginated.value = true;
+    usersmobile.value = Array.isArray(payload?.items) ? payload.items : [];
+    totalUsers.value = typeof payload?.total === "number" ? payload.total : usersmobile.value.length;
+    totalPages.value = typeof payload?.totalPages === "number" ? payload.totalPages : 1;
   } catch (error) {
+    usersmobile.value = [];
+    totalUsers.value = 0;
+    totalPages.value = 1;
     loadError.value = error?.message || "Failed to load mobile number of users";
   } finally {
     isLoadingMobile.value = false;
@@ -61,7 +98,17 @@ async function loadUsersmobile() {
 async function goToPage(page) {
   if (page < 1 || page > totalPages.value || page === currentPage.value) return;
   currentPage.value = page;
-  await loadUsersmobile();
+  if (isServerPaginated.value) {
+    await loadUsersmobile();
+  }
+}
+
+function getGameName(user) {
+  if (user?.game?.name) {
+    return user.game.name;
+  }
+
+  return gameNameById.value.get(String(user?.game_id ?? "")) || "—";
 }
 
 // Watch for changes in filters and trigger a reload
@@ -124,13 +171,13 @@ onMounted(() => {
               <td colspan="3" class="px-4 py-10 text-center text-slate-500">No mobile users found.</td>
             </tr>
             
-            <tr v-for="user in usersmobile" :key="user.id" class="hover:bg-slate-50/80">
+            <tr v-for="user in displayedUsersmobile" :key="user.id" class="hover:bg-slate-50/80">
 
               <td class="px-4 py-3 text-slate-600">
                 {{ user.game_id }}
               </td>
               <td class="px-4 py-3 text-slate-600">
-                {{ user.game?.name || "—" }}
+                {{ getGameName(user) }}
               </td>
               <td class="px-4 py-3 font-semibold text-slate-900">
                 {{ user.phone }}
