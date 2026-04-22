@@ -40,10 +40,13 @@ async function loadUsersmobile() {
   isLoadingMobile.value = true;
   try {
     const params = new URLSearchParams({
-      page: currentPage.value,
-      pageSize: PAGE_SIZE,
-      gameId: selectedGameId.value,
+      page: String(currentPage.value),
+      pageSize: String(PAGE_SIZE),
     });
+    if (selectedGameId.value) {
+      params.set("gameId", selectedGameId.value);
+    }
+
     const payload = await apiRequest(`api/usermobile?${params.toString()}`);
     usersmobile.value = payload.items || [];
     totalUsers.value = payload.total || 0;
