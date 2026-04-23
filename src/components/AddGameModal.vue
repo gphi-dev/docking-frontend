@@ -51,7 +51,12 @@ function resetForm() {
 function populateForm() {
   name.value = props.game?.name ?? "";
   gameid.value = props.game?.game_id ?? "";
-  gamesecretkey.value = props.game?.game_secret_key ?? "";
+  gamesecretkey.value =
+    props.game?.game_secret_key
+    ?? props.game?.gameSecretKey
+    ?? props.game?.secret_key
+    ?? props.game?.secretKey
+    ?? "";
   description.value = props.game?.description ?? "";
   imageUrl.value = props.game?.image_url ?? "";
   imageSource.value = props.game?.image_url?.startsWith("data:image/") ? "upload" : "url";
@@ -140,6 +145,17 @@ async function handleSubmit() {
 
   isSubmitting.value = true;
   try {
+    const payload = {
+      name: name.value.trim(),
+      game_id: Number(gameid.value),
+      description: description.value.trim() || null,
+      image_url: resolvedImageUrl,
+    };
+
+    if (!isEditMode() || gamesecretkey.value.trim()) {
+      payload.game_secret_key = gamesecretkey.value.trim();
+    }
+
     const savedGame = await apiRequest(isEditMode() ? `/api/games/${props.game?.id}` : "/api/games", {
       method: isEditMode() ? "PUT" : "POST",
       headers: {
@@ -147,13 +163,7 @@ async function handleSubmit() {
         // static Bearer token frontend local dev!
         "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzc1ODEwNzU2LCJleHAiOjE3NzU4Mzk1NTYsInN1YiI6IjEifQ.oGCNUf1jrQJOqzMB-rwHaLSAQl4MJArK647pKz_r7kc` 
       },
-      body: JSON.stringify({
-        name: name.value.trim(),
-        game_id: Number(gameid.value),
-        game_secret_key: gamesecretkey.value.trim(),
-        description: description.value.trim() || null,
-        image_url: resolvedImageUrl,
-      }),
+      body: JSON.stringify(payload),
     });
     
 
@@ -233,9 +243,9 @@ async function handleSubmit() {
             </label>
             <input
               v-model="gamesecretkey"
-              required
+              :required="!isEditMode()"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-              placeholder="e.g. abc123"
+              :placeholder="isEditMode() ? 'Leave blank to keep current key' : 'e.g. abc123'"
             />
           </div>
           <div>
