@@ -107,7 +107,7 @@ onMounted(() => {
   <div class="space-y-10">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Dashboardsssss</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Game Docking Dashboard</h1>
         <p class="mt-1 text-sm text-slate-600">Overview of games and the latest subscriber activity.</p>
       </div>
       <div class="flex shrink-0 justify-end">
