@@ -78,12 +78,6 @@ watch(
   { immediate: true },
 );
 
-function handleBackdropClick() {
-  if (!isSubmitting.value) {
-    emit("close");
-  }
-}
-
 function getPreviewImageSrc() {
   if (imageSource.value === "upload") {
     return uploadedImageData.value || "";
@@ -182,16 +176,15 @@ async function handleSubmit() {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-4 sm:items-center"
+      class="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/60 p-3 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
-      @click.self="handleBackdropClick"
     >
       <div
-        class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+        class="my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-lg flex-col rounded-2xl border border-slate-200 bg-white shadow-xl sm:max-h-[calc(100vh-2rem)]"
         @click.stop
       >
-        <div class="mb-4 flex items-start justify-between gap-4">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
           <div>
             <h2 class="text-lg font-semibold text-slate-900">
               {{ isEditMode() ? "Update game" : "Add game" }}
@@ -211,7 +204,7 @@ async function handleSubmit() {
           </button>
         </div>
 
-        <form class="space-y-4" @submit.prevent="handleSubmit">
+        <form class="flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6" @submit.prevent="handleSubmit">
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
               Name
@@ -338,11 +331,11 @@ async function handleSubmit() {
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
               Image Preview
             </label>
-            <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
               <img
                 :src="getPreviewImageSrc()"
                 alt="Selected game image preview"
-                class="h-40 w-full object-cover"
+                class="max-h-48 w-full object-contain sm:max-h-56"
               />
             </div>
           </div>
