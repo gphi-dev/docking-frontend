@@ -53,12 +53,7 @@ function resetForm() {
 function populateForm() {
   name.value = props.game?.name ?? "";
   gameid.value = props.game?.game_id ?? "";
-  gamesecretkey.value =
-    props.game?.game_secret_key
-    ?? props.game?.gameSecretKey
-    ?? props.game?.secret_key
-    ?? props.game?.secretKey
-    ?? "";
+  gamesecretkey.value = props.game?.gamesecretkey ?? "";
   description.value = props.game?.description ?? "";
   imageUrl.value = props.game?.image_url ?? "";
   imageSource.value = props.game?.image_url?.startsWith("data:image/") ? "upload" : "url";
@@ -156,7 +151,7 @@ async function handleSubmit() {
     };
 
     if (!isEditMode() || gamesecretkey.value.trim()) {
-      payload.game_secret_key = gamesecretkey.value.trim();
+      payload.gamesecretkey = gamesecretkey.value.trim();
     }
 
     const savedGame = await apiRequest(isEditMode() ? `/api/games/${props.game?.id}` : "/api/games", {
@@ -250,7 +245,8 @@ async function handleSubmit() {
                 :type="isGameSecretKeyVisible ? 'text' : 'password'"
                 :required="!isEditMode()"
                 class="w-full rounded-lg border border-slate-200 px-3 py-2 pr-20 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-                :placeholder="isEditMode() ? 'Leave blank to keep current key' : 'e.g. abc123'"
+                :placeholder="isEditMode() && !gamesecretkey ? 'Leave blank to keep current key' : 'e.g. abc123'"
+                autocomplete="off"
               />
               <button
                 type="button"
