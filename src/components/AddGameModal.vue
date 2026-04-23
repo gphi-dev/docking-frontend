@@ -28,6 +28,7 @@ const imageUrl = ref("");
 const imageSource = ref("url");
 const uploadedImageData = ref("");
 const uploadedImageName = ref("");
+const isGameSecretKeyVisible = ref(false);
 const errorMessage = ref("");
 const isSubmitting = ref(false);
 
@@ -44,6 +45,7 @@ function resetForm() {
   imageSource.value = "url";
   uploadedImageData.value = "";
   uploadedImageName.value = "";
+  isGameSecretKeyVisible.value = false;
   errorMessage.value = "";
   isSubmitting.value = false;
 }
@@ -62,6 +64,7 @@ function populateForm() {
   imageSource.value = props.game?.image_url?.startsWith("data:image/") ? "upload" : "url";
   uploadedImageData.value = imageSource.value === "upload" ? props.game?.image_url ?? "" : "";
   uploadedImageName.value = "";
+  isGameSecretKeyVisible.value = false;
   errorMessage.value = "";
   isSubmitting.value = false;
 }
@@ -241,12 +244,23 @@ async function handleSubmit() {
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
               Game Secret Key
             </label>
-            <input
-              v-model="gamesecretkey"
-              :required="!isEditMode()"
-              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-              :placeholder="isEditMode() ? 'Leave blank to keep current key' : 'e.g. abc123'"
-            />
+            <div class="relative">
+              <input
+                v-model="gamesecretkey"
+                :type="isGameSecretKeyVisible ? 'text' : 'password'"
+                :required="!isEditMode()"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 pr-20 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
+                :placeholder="isEditMode() ? 'Leave blank to keep current key' : 'e.g. abc123'"
+              />
+              <button
+                type="button"
+                class="absolute inset-y-0 right-3 my-auto h-fit text-xs font-semibold text-sky-700 transition hover:text-sky-600"
+                :disabled="isSubmitting"
+                @click="isGameSecretKeyVisible = !isGameSecretKeyVisible"
+              >
+                {{ isGameSecretKeyVisible ? "Hide" : "Show" }}
+              </button>
+            </div>
           </div>
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
