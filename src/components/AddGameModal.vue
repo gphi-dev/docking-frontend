@@ -25,6 +25,9 @@ const gameid = ref("");
 const gamesecretkey = ref("");
 const description = ref("");
 const imageUrl = ref("");
+const imageSource = ref("url");
+const uploadedImageData = ref("");
+const uploadedImageName = ref("");
 const errorMessage = ref("");
 const isSubmitting = ref(false);
 
@@ -38,6 +41,9 @@ function resetForm() {
   gamesecretkey.value = "";
   description.value = "";
   imageUrl.value = "";
+  imageSource.value = "url";
+  uploadedImageData.value = "";
+  uploadedImageName.value = "";
   errorMessage.value = "";
   isSubmitting.value = false;
 }
@@ -48,6 +54,9 @@ function populateForm() {
   gamesecretkey.value = props.game?.game_secret_key ?? "";
   description.value = props.game?.description ?? "";
   imageUrl.value = props.game?.image_url ?? "";
+  imageSource.value = props.game?.image_url?.startsWith("data:image/") ? "upload" : "url";
+  uploadedImageData.value = imageSource.value === "upload" ? props.game?.image_url ?? "" : "";
+  uploadedImageName.value = "";
   errorMessage.value = "";
   isSubmitting.value = false;
 }
@@ -75,12 +84,66 @@ function handleBackdropClick() {
   }
 }
 
+function getPreviewImageSrc() {
+  if (imageSource.value === "upload") {
+    return uploadedImageData.value || "";
+  }
+  return imageUrl.value.trim();
+}
+
+function clearUploadedImage() {
+  uploadedImageData.value = "";
+  uploadedImageName.value = "";
+}
+
+function handleImageSourceChange(source) {
+  imageSource.value = source;
+  errorMessage.value = "";
+}
+
+function handleImageFileChange(event) {
+  const [file] = event.target.files || [];
+
+  if (!file) {
+    clearUploadedImage();
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    clearUploadedImage();
+    errorMessage.value = "Please choose a valid image file";
+    event.target.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    uploadedImageData.value = typeof reader.result === "string" ? reader.result : "";
+    uploadedImageName.value = file.name;
+    errorMessage.value = "";
+  };
+  reader.onerror = () => {
+    clearUploadedImage();
+    errorMessage.value = "Could not read the selected image";
+  };
+  reader.readAsDataURL(file);
+}
+
 async function handleSubmit() {
   errorMessage.value = "";
   if (!name.value.trim()) {
     errorMessage.value = "Name is required";
     return;
   }
+
+  const resolvedImageUrl =
+    imageSource.value === "upload" ? uploadedImageData.value || null : imageUrl.value.trim() || null;
+
+  if (imageSource.value === "upload" && !resolvedImageUrl) {
+    errorMessage.value = "Please upload an image file";
+    return;
+  }
+
   isSubmitting.value = true;
   try {
     const savedGame = await apiRequest(isEditMode() ? `/api/games/${props.game?.id}` : "/api/games", {
@@ -95,7 +158,7 @@ async function handleSubmit() {
         game_id: Number(gameid.value),
         game_secret_key: gamesecretkey.value.trim(),
         description: description.value.trim() || null,
-        image_url: imageUrl.value.trim() || null,
+        image_url: resolvedImageUrl,
       }),
     });
     
@@ -195,14 +258,93 @@ async function handleSubmit() {
           </div>
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Image URL
+              Image Source
+            </label>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                class="rounded-lg border px-3 py-2 text-sm font-semibold transition"
+                :class="
+                  imageSource === 'url'
+                    ? 'border-sky-500 bg-sky-50 text-sky-700'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                "
+                :disabled="isSubmitting"
+                @click="handleImageSourceChange('url')"
+              >
+                Image URL / Path
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border px-3 py-2 text-sm font-semibold transition"
+                :class="
+                  imageSource === 'upload'
+                    ? 'border-sky-500 bg-sky-50 text-sky-700'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                "
+                :disabled="isSubmitting"
+                @click="handleImageSourceChange('upload')"
+              >
+                Upload Image
+              </button>
+            </div>
+          </div>
+
+          <div v-if="imageSource === 'url'" class="space-y-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Image URL or Asset Path
             </label>
             <input
               v-model="imageUrl"
-              type="url"
+              type="text"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-              placeholder="https://…"
+              placeholder="https://… or /images/game-cover.png"
             />
+            <p class="text-xs text-slate-500">
+              Use a full image URL or a local public asset path.
+            </p>
+          </div>
+
+          <div v-else class="space-y-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Upload Image File
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              class="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-sky-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-sky-700"
+              :disabled="isSubmitting"
+              @change="handleImageFileChange"
+            />
+            <div v-if="uploadedImageName" class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+              <p class="truncate text-xs text-slate-600">
+                {{ uploadedImageName }}
+              </p>
+              <button
+                type="button"
+                class="shrink-0 text-xs font-semibold text-rose-600 transition hover:text-rose-700"
+                :disabled="isSubmitting"
+                @click="clearUploadedImage"
+              >
+                Remove
+              </button>
+            </div>
+            <p class="text-xs text-slate-500">
+              Uploaded files are stored as the game image value and shown immediately in the app.
+            </p>
+          </div>
+
+          <div v-if="getPreviewImageSrc()" class="space-y-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Image Preview
+            </label>
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              <img
+                :src="getPreviewImageSrc()"
+                alt="Selected game image preview"
+                class="h-40 w-full object-cover"
+              />
+            </div>
           </div>
 
           <p v-if="errorMessage" class="text-sm text-rose-600">
