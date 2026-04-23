@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from "vue";
-import { apiRequest } from "../api/http.js";
+import { apiRequest, resolveAssetUrl } from "../api/http.js";
 
 const props = defineProps({
   open: {
@@ -82,7 +82,7 @@ function getPreviewImageSrc() {
   if (imageSource.value === "upload") {
     return uploadedImageData.value || "";
   }
-  return imageUrl.value.trim();
+  return resolveAssetUrl(imageUrl.value.trim());
 }
 
 function clearUploadedImage() {

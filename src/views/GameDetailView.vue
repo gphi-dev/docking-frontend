@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
-import { apiRequest } from "../api/http";
+import { apiRequest, resolveAssetUrl } from "../api/http";
 
 const SUBSCRIBER_PAGE_SIZE = 20;
 
@@ -61,11 +61,39 @@ async function loadGame() {
   game.value = gamePayload;
 }
 
+function getGameIdentifierCandidates() {
+  return [...new Set([
+    game.value?.id,
+    game.value?.game_id,
+    game.value?.slug,
+    props.gameId,
+  ].filter((value) => value !== undefined && value !== null && String(value).trim() !== ""))];
+}
+
+async function requestByGameCandidates(buildPath) {
+  const candidates = getGameIdentifierCandidates();
+  let lastError = null;
+
+  for (const candidate of candidates) {
+    try {
+      return await apiRequest(buildPath(String(candidate)));
+    } catch (error) {
+      lastError = error;
+      if (error?.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error("Game not found");
+}
+
 async function loadSubscribers() {
   isSubscribersLoading.value = true;
   try {
-    // Safety check: Ensure the game object loaded and has a game_id
-    if (!game.value || !game.value.game_id) {
+    loadError.value = "";
+
+    if (!game.value) {
       subscribers.value = [];
       subscribersTotal.value = 0;
       subscribersTotalPages.value = 1;
@@ -77,9 +105,8 @@ async function loadSubscribers() {
       pageSize: String(SUBSCRIBER_PAGE_SIZE),
     });
 
-    // We MUST pass game.value.game_id (e.g., 'PH-001-2026'), NOT props.gameId (the slug)
-    const subscribersPayload = await apiRequest(
-      `/api/subscribers/games/${game.value.game_id}?${queryParameters.toString()}`,
+    const subscribersPayload = await requestByGameCandidates(
+      (candidate) => `/api/subscribers/games/${candidate}?${queryParameters.toString()}`,
     );
 
     subscribers.value = Array.isArray(subscribersPayload.items) ? subscribersPayload.items : [];
@@ -89,7 +116,11 @@ async function loadSubscribers() {
       currentPage.value = subscribersPayload.page;
     }
   } catch (error) {
-     console.error("Failed to load subscribers", error)
+    subscribers.value = [];
+    subscribersTotal.value = 0;
+    subscribersTotalPages.value = 1;
+    loadError.value = error?.message || "Failed to load subscribers";
+    console.error("Failed to load subscribers", error);
   } finally {
     isSubscribersLoading.value = false;
   }
@@ -99,11 +130,14 @@ async function loadUsermobiles() {
   usermobilesLoadError.value = "";
   isUsermobilesLoading.value = true;
   try {
-    // Safety check
-    if (!game.value || !game.value.game_id) return;
+    if (!game.value) {
+      usermobiles.value = [];
+      return;
+    }
 
-    // Again, passing game.value.game_id ('PH-001-2026'), not the slug
-    const usermobilesPayload = await apiRequest(`/api/usermobile/games/${game.value.game_id}`);
+    const usermobilesPayload = await requestByGameCandidates(
+      (candidate) => `/api/usermobile/games/${candidate}`,
+    );
     usermobiles.value = Array.isArray(usermobilesPayload) ? usermobilesPayload : [];
   } catch (error) {
     usermobiles.value = [];
@@ -194,7 +228,7 @@ watch(
           <div class="overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
             <img
               v-if="game.image_url"
-              :src="game.image_url"
+              :src="resolveAssetUrl(game.image_url)"
               :alt="game.name"
               class="h-full w-full max-h-56 object-cover"
             />

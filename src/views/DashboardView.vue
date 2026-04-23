@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
-import { apiRequest } from "../api/http";
+import { apiRequest, resolveAssetUrl } from "../api/http";
 import AddGameModal from "../components/AddGameModal.vue";
 
 const router = useRouter();
@@ -162,7 +162,7 @@ onMounted(() => {
             <div class="relative h-28 w-28 shrink-0 bg-slate-100">
               <img
                 v-if="game.image_url"
-                :src="game.image_url"
+                :src="resolveAssetUrl(game.image_url)"
                 :alt="game.name"
                 class="h-full w-full object-cover"
                 loading="lazy"
