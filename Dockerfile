@@ -7,10 +7,10 @@ RUN npm ci
 
 COPY . .
 
-ARG VITE_API_BASE_URL=
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_API_BASE_URL
 
-RUN npm run build
+# Preserve .env.production unless a non-empty build arg is explicitly provided.
+RUN if [ -n "$VITE_API_BASE_URL" ]; then export VITE_API_BASE_URL="$VITE_API_BASE_URL"; fi && npm run build
 
 FROM nginx:1.27-alpine
 
