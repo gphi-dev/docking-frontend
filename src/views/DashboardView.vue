@@ -220,8 +220,8 @@ onMounted(() => {
     <section class="space-y-5">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Arcade Worlds</p>
-          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Featured game rooms</h2>
+          <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">GPHI Arcade World</p>
+          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Featured game</h2>
         </div>
         <RouterLink
           :to="{ name: 'games' }"
