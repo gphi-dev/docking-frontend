@@ -135,11 +135,25 @@ async function handleDeleteGame(game) {
     return;
   }
 
+  const password = window.prompt(`Enter your password to delete "${game.name}":`);
+  if (password === null) {
+    return;
+  }
+
+  const trimmedPassword = password.trim();
+  if (!trimmedPassword) {
+    loadError.value = "Password is required to delete a game.";
+    return;
+  }
+
   deletingGameId.value = game.id;
   loadError.value = "";
 
   try {
-    await apiRequest(`/api/games/${game.id}`, { method: "DELETE" });
+    await apiRequest(`/api/games/${game.id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ password: trimmedPassword }),
+    });
     games.value = games.value.filter((item) => item.id !== game.id);
     featuredGames.value = featuredGames.value.filter((item) => item.id !== game.id);
     newGames.value = newGames.value.filter((item) => item.id !== game.id);
