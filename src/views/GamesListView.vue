@@ -138,12 +138,11 @@ onMounted(() => {
 <template>
   <div class="space-y-8">
     <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
-      
       <div class="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
       <div class="pointer-events-none absolute bottom-0 left-12 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
       <div class="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">Arcade Atlas</p>
+          <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">GPHI Game Registry</p>
           <h1 class="mt-3 text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">Games</h1>
           <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
             Browse every world in your lineup and jump straight into the detail view for players, activity, and health checks.
@@ -161,7 +160,7 @@ onMounted(() => {
             </button>
           </div>
           <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Active Rooms</p>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">GAME COUNT</p>
             <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ games.length }}</p>
           </div>
         </div>
