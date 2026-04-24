@@ -31,6 +31,8 @@ const uploadedImageName = ref("");
 const isGameSecretKeyVisible = ref(false);
 const errorMessage = ref("");
 const isSubmitting = ref(false);
+const isLoadingNextGameId = ref(false);
+let nextGameIdRequestId = 0;
 
 function isEditMode() {
   return props.mode === "edit";
@@ -48,6 +50,7 @@ function resetForm() {
   isGameSecretKeyVisible.value = false;
   errorMessage.value = "";
   isSubmitting.value = false;
+  isLoadingNextGameId.value = false;
 }
 
 function populateForm() {
@@ -62,6 +65,37 @@ function populateForm() {
   isGameSecretKeyVisible.value = false;
   errorMessage.value = "";
   isSubmitting.value = false;
+  isLoadingNextGameId.value = false;
+}
+
+function getNextGameId(games) {
+  const latestGameId = games.reduce((latest, game) => {
+    const numericGameId = Number(game?.game_id);
+    return Number.isFinite(numericGameId) ? Math.max(latest, numericGameId) : latest;
+  }, 0);
+
+  return latestGameId + 1;
+}
+
+async function loadNextGameId() {
+  const requestId = ++nextGameIdRequestId;
+  isLoadingNextGameId.value = true;
+
+  try {
+    const payload = await apiRequest("/api/games");
+    const games = Array.isArray(payload) ? payload : [];
+    if (requestId === nextGameIdRequestId && !isEditMode()) {
+      gameid.value = String(getNextGameId(games));
+    }
+  } catch (error) {
+    if (requestId === nextGameIdRequestId) {
+      errorMessage.value = error?.message || "Could not load the next Game ID";
+    }
+  } finally {
+    if (requestId === nextGameIdRequestId) {
+      isLoadingNextGameId.value = false;
+    }
+  }
 }
 
 watch(
@@ -77,6 +111,7 @@ watch(
     }
 
     resetForm();
+    loadNextGameId();
   },
   { immediate: true },
 );
@@ -231,8 +266,12 @@ async function handleSubmit() {
             <input
               v-model="gameid"
               required
+              type="number"
+              min="1"
+              step="1"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-              placeholder="Must be integer, e.g. 12345"
+              :disabled="isLoadingNextGameId"
+              :placeholder="isLoadingNextGameId ? 'Loading next Game ID...' : 'Must be integer, e.g. 12345'"
             />
           </div>
           <div>
@@ -376,9 +415,9 @@ async function handleSubmit() {
             <button
               type="submit"
               class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60"
-              :disabled="isSubmitting"
+              :disabled="isSubmitting || isLoadingNextGameId"
             >
-              {{ isSubmitting ? "Saving…" : isEditMode() ? "Update game" : "Create game" }}
+              {{ isSubmitting ? "Saving…" : isLoadingNextGameId ? "Loading…" : isEditMode() ? "Update game" : "Create game" }}
             </button>
           </div>
         </form>
