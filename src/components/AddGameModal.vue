@@ -199,20 +199,19 @@ function formatBytes(bytes) {
   return `${Math.ceil(bytes / 1024)} KB`;
 }
 
-function loadImageFromFile(file) {
+function loadImageFromSource(source, cleanup = () => {}) {
   return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
     const image = new Image();
 
     image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
+      cleanup();
       resolve(image);
     };
     image.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
+      cleanup();
       reject(new Error("Could not load the selected image"));
     };
-    image.src = objectUrl;
+    image.src = source;
   });
 }
 
@@ -236,8 +235,7 @@ function drawResizedImage(image, maxDimension) {
   return canvas;
 }
 
-async function resizeImageFile(file) {
-  const image = await loadImageFromFile(file);
+async function resizeLoadedImage(image) {
   let dimension = maxImageDimension;
   let quality = initialImageQuality;
 
@@ -263,6 +261,55 @@ async function resizeImageFile(file) {
   }
 
   throw new Error("Image is too large to upload after resizing. Please choose a smaller image.");
+}
+
+async function resizeImageFile(file) {
+  const objectUrl = URL.createObjectURL(file);
+  const image = await loadImageFromSource(objectUrl, () => URL.revokeObjectURL(objectUrl));
+  return resizeLoadedImage(image);
+}
+
+async function resizeImageDataUrl(dataUrl) {
+  const image = await loadImageFromSource(dataUrl);
+  return resizeLoadedImage(image);
+}
+
+async function getPreparedImageUrl() {
+  const rawImageValue =
+    imageSource.value === "upload" ? uploadedImageData.value || null : imageUrl.value.trim() || null;
+
+  if (imageSource.value === "upload" && !rawImageValue) {
+    throw new Error("Please upload an image file");
+  }
+
+  if (typeof rawImageValue === "string" && rawImageValue.trim().startsWith("data:image/")) {
+    if (rawImageValue.length <= maxUploadedImageDataLength) {
+      return rawImageValue;
+    }
+
+    isResizingImage.value = true;
+    try {
+      const resizedImage = await resizeImageDataUrl(rawImageValue);
+      const resizedLabel = `resized ${resizedImage.width}x${resizedImage.height} (${formatBytes(
+        resizedImage.byteLength,
+      )})`;
+
+      if (imageSource.value === "upload") {
+        uploadedImageData.value = resizedImage.dataUrl;
+        uploadedImageName.value = uploadedImageName.value
+          ? uploadedImageName.value.replace(/ - resized .*$/, ` - ${resizedLabel}`)
+          : resizedLabel;
+      } else {
+        imageUrl.value = resizedImage.dataUrl;
+      }
+
+      return resizedImage.dataUrl;
+    } finally {
+      isResizingImage.value = false;
+    }
+  }
+
+  return rawImageValue;
 }
 
 async function handleImageFileChange(event) {
@@ -306,22 +353,22 @@ async function handleSubmit() {
     return;
   }
 
-  const resolvedImageUrl =
-    imageSource.value === "upload" ? uploadedImageData.value || null : imageUrl.value.trim() || null;
-
-  if (imageSource.value === "upload" && !resolvedImageUrl) {
-    errorMessage.value = "Please upload an image file";
-    return;
-  }
-
-  const imageUrlError = validateImageUrl(resolvedImageUrl);
-  if (imageUrlError) {
-    errorMessage.value = imageUrlError;
-    return;
-  }
-
   if (!Number.isInteger(Number(gameid.value)) || Number(gameid.value) < 1) {
     errorMessage.value = "Game ID must be a positive integer";
+    return;
+  }
+
+  let resolvedImageUrl = null;
+  try {
+    resolvedImageUrl = await getPreparedImageUrl();
+
+    const imageUrlError = validateImageUrl(resolvedImageUrl);
+    if (imageUrlError) {
+      errorMessage.value = imageUrlError;
+      return;
+    }
+  } catch (error) {
+    errorMessage.value = error?.message || "Could not prepare the selected image";
     return;
   }
 
