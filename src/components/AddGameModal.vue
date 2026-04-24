@@ -168,11 +168,8 @@ async function handleSubmit() {
     return;
   }
 
-  const resolvedImageUrl =
-    imageSource.value === "upload" ? uploadedImageData.value || null : imageUrl.value.trim() || null;
-
-  if (imageSource.value === "upload" && !resolvedImageUrl) {
-    errorMessage.value = "Please upload an image file";
+  if (!Number.isInteger(Number(gameid.value)) || Number(gameid.value) < 1) {
+    errorMessage.value = "Game ID must be a positive integer";
     return;
   }
 
