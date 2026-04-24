@@ -7,35 +7,117 @@ const usersmobile = ref([]);
 const loadError = ref("");
 const isLoadingMobile = ref(true);
 
-function formatDateTime(isoString) {
-  if (!isoString) {
-    return "—";
+// State for filtering and search
+const selectedGameId = ref("");
+
+// State for pagination
+const currentPage = ref(1);
+const totalPages = ref(1);
+const totalUsers = ref(0);
+const isServerPaginated = ref(false);
+
+const displayedUsersmobile = computed(() => {
+  if (isServerPaginated.value) {
+    return usersmobile.value;
   }
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) {
-    return isoString;
+
+  const startIndex = (currentPage.value - 1) * PAGE_SIZE;
+  return usersmobile.value.slice(startIndex, startIndex + PAGE_SIZE);
+});
+
+const gameNameById = computed(() => {
+  const entries = new Map();
+
+  for (const game of games.value) {
+    if (game?.id !== undefined && game?.id !== null) {
+      entries.set(String(game.id), game.name || "—");
+    }
+    if (game?.game_id !== undefined && game?.game_id !== null) {
+      entries.set(String(game.game_id), game.name || "—");
+    }
   }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+
+  return entries;
+});
+
+const usersRangeLabel = computed(() => {
+  if (totalUsers.value === 0) {
+    return "0 users";
+  }
+  const startIndex = (currentPage.value - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(currentPage.value * PAGE_SIZE, totalUsers.value);
+  return `Showing ${startIndex}–${endIndex} of ${totalUsers.value}`;
+});
+
+async function loadGames() {
+  try {
+    const payload = await apiRequest("/api/games");
+    games.value = Array.isArray(payload) ? payload : [];
+  } catch (error) {
+    console.error("Failed to load games for filter:", error);
+  }
 }
 
 async function loadUsersmobile() {
   loadError.value = "";
   isLoadingMobile.value = true;
   try {
-    const payload = await apiRequest("api/usermobile");
-    usersmobile.value = Array.isArray(payload) ? payload : [];
+    const params = new URLSearchParams({
+      page: String(currentPage.value),
+      pageSize: String(PAGE_SIZE),
+    });
+    if (selectedGameId.value) {
+      params.set("gameId", selectedGameId.value);
+    }
+
+    const payload = await apiRequest(`api/usermobile?${params.toString()}`);
+    if (Array.isArray(payload)) {
+      isServerPaginated.value = false;
+      usersmobile.value = payload;
+      totalUsers.value = payload.length;
+      totalPages.value = Math.max(1, Math.ceil(payload.length / PAGE_SIZE));
+      return;
+    }
+
+    isServerPaginated.value = true;
+    usersmobile.value = Array.isArray(payload?.items) ? payload.items : [];
+    totalUsers.value = typeof payload?.total === "number" ? payload.total : usersmobile.value.length;
+    totalPages.value = typeof payload?.totalPages === "number" ? payload.totalPages : 1;
   } catch (error) {
+    usersmobile.value = [];
+    totalUsers.value = 0;
+    totalPages.value = 1;
     loadError.value = error?.message || "Failed to load mobile number of users";
   } finally {
     isLoadingMobile.value = false;
   }
 }
 
+async function goToPage(page) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return;
+  currentPage.value = page;
+  if (isServerPaginated.value) {
+    await loadUsersmobile();
+  }
+}
+
+function getGameName(user) {
+  if (user?.game?.name) {
+    return user.game.name;
+  }
+
+  return gameNameById.value.get(String(user?.game_id ?? "")) || "—";
+}
+
+// Watch for changes in filters and trigger a reload
+watch(selectedGameId, () => {
+  currentPage.value = 1;
+  loadUsersmobile();
+});
+
 onMounted(() => {
   loadUsersmobile();
+  loadGames();
 });
 </script>
 
@@ -75,8 +157,9 @@ onMounted(() => {
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.24em] text-emerald-800/70">
             <tr>
-              <th class="px-4 py-3">Phone Number</th>
               <th class="px-4 py-3">Game ID</th> 
+              <th class="px-4 py-3">Game Name</th> 
+              <th class="px-4 py-3">Phone Number</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-emerald-100/80">
@@ -98,10 +181,45 @@ onMounted(() => {
                   {{ user.game_id }}
                 </span>
               </td>
+              <td class="px-4 py-3 text-slate-600">
+                {{ getGameName(user) }}
+              </td>
+              <td class="px-4 py-3 font-semibold text-slate-900">
+                {{ user.phone }}
+              </td>
+              
             </tr>
             
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div v-if="totalUsers > 0 && totalPages > 1" class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+      <p class="text-xs text-slate-500">
+        Page {{ currentPage }} of {{ totalPages }}
+      </p>
+
+      <div class="flex justify-end gap-2">
+        <button
+          type="button"
+          class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="isLoadingMobile || currentPage <= 1"
+          aria-label="Previous page"
+          @click="goToPage(currentPage - 1)"
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="isLoadingMobile || currentPage >= totalPages"
+          aria-label="Next page"
+          @click="goToPage(currentPage + 1)"
+        >
+          Next
+        </button>
       </div>
     </div>
   </div>

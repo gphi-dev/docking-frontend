@@ -12,7 +12,8 @@ function getApiBaseUrl() {
   if (configuredBaseUrl === undefined || configuredBaseUrl === null) {
     return "";
   }
-  return String(configuredBaseUrl).replace(/\/$/, "");
+
+  return String(configuredBaseUrl).trim().replace(/\/+$/, "");
 }
 
 function getAssetBaseUrl() {
@@ -61,6 +62,7 @@ export async function apiRequest(path, options = {}) {
   const baseUrl = getApiBaseUrl();
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${baseUrl}${normalizedPath}`;
+  const method = String(options.method || "GET").toUpperCase();
 
   const requestHeaders = new Headers(options.headers || {});
   if (!requestHeaders.has("Content-Type") && options.body && typeof options.body === "string") {
@@ -74,6 +76,7 @@ export async function apiRequest(path, options = {}) {
 
   const response = await fetch(url, {
     ...options,
+    cache: options.cache ?? (method === "GET" ? "no-store" : options.cache),
     headers: requestHeaders,
   });
 
