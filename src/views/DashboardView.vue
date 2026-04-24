@@ -195,10 +195,13 @@ onMounted(() => {
       </div>
 
       <div class="relative mt-6 grid gap-3 sm:grid-cols-3">
-        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">All Games</p>
+        <RouterLink
+          :to="{ name: 'games' }"
+          class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/85"
+        >
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">View All Games</p>
           <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ games.length }}</p>
-        </div>
+        </RouterLink>
         <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
           <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Featured Games</p>
           <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ featuredGames.length }}</p>
