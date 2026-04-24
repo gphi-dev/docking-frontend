@@ -48,9 +48,9 @@ function isNavigationActive(routeName) {
           </div>
         </div>
         <div class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-          <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-lime-100/60">Console Status</p>
+          <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-lime-100/60">Signed in as</p>
           <div class="mt-2 flex items-center justify-between">
-            <p class="text-sm font-semibold text-white">Arcade Live</p>
+            <p class="text-sm font-semibold text-white">{{ authStore.adminUser?.username || "admin" }}</p>
             <span class="h-2.5 w-2.5 rounded-full bg-lime-300 shadow-[0_0_20px_rgba(190,242,100,0.9)]" />
           </div>
         </div>

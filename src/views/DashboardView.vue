@@ -1,11 +1,14 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import { apiRequest, resolveAssetUrl } from "../api/http";
+import { extractUsermobileRecords } from "../api/response";
 import AddGameModal from "../components/AddGameModal.vue";
 
 const router = useRouter();
 const games = ref([]);
+const featuredGames = ref([]);
+const newGames = ref([]);
 const recentSubscribers = ref([]);
 const loadError = ref("");
 const isLoading = ref(true);
@@ -15,23 +18,13 @@ const selectedGame = ref(null);
 const deletingGameId = ref(null);
 const editingGameId = ref(null);
 
-const dashboardStats = computed(() => [
-  {
-    label: "Arcade Worlds",
-    value: games.value.length,
-    accent: "from-emerald-500/25 via-lime-400/10 to-transparent",
-  },
-  {
-    label: "Fresh Games",
-    value: recentSubscribers.value.length,
-    accent: "from-teal-500/20 via-emerald-400/10 to-transparent",
-  },
-  {
-    label: "Adventure State",
-    value: isLoading.value ? "Syncing" : "Live",
-    accent: "from-lime-500/20 via-green-400/10 to-transparent",
-  },
-]);
+function extractDashboardCollections(payload) {
+  if (payload && typeof payload === "object" && payload.data && typeof payload.data === "object") {
+    return payload.data;
+  }
+
+  return payload && typeof payload === "object" ? payload : {};
+}
 
 function formatDateTime(isoString) {
   if (!isoString) {
@@ -79,12 +72,25 @@ async function loadDashboardData() {
   loadError.value = "";
   isLoading.value = true;
   try {
-    const [gamesPayload, recentPayload] = await Promise.all([
-      apiRequest("/api/games"),
-      apiRequest("/api/subscribers/recent"),
+    const [payload, usermobilePayload] = await Promise.all([
+      apiRequest("/api/games?featured_limit=3&new_limit=3"),
+      apiRequest("/api/usermobile/"),
     ]);
-    games.value = Array.isArray(gamesPayload) ? gamesPayload : [];
-    recentSubscribers.value = Array.isArray(recentPayload) ? recentPayload : [];
+    const collections = extractDashboardCollections(payload);
+    const usermobileRecords = extractUsermobileRecords(usermobilePayload);
+
+    games.value = Array.isArray(collections.games) ? collections.games : [];
+    featuredGames.value = Array.isArray(collections.featured_games) ? collections.featured_games : [];
+    newGames.value = Array.isArray(collections.new_games) ? collections.new_games : [];
+    recentSubscribers.value = usermobileRecords.length > 0
+      ? [...usermobileRecords]
+          .sort((left, right) => {
+            const leftTimestamp = new Date(left?.created_at || 0).getTime();
+            const rightTimestamp = new Date(right?.created_at || 0).getTime();
+            return rightTimestamp - leftTimestamp;
+          })
+          .slice(0, 5)
+      : [];
   } catch (error) {
     loadError.value = error?.message || "Failed to load dashboard";
   } finally {
@@ -113,8 +119,6 @@ async function openEditGameModal(game) {
   loadError.value = "";
 
   try {
-    // Fetch the full game object by its slug to ensure all fields,
-    // including the secret key, are available for editing.
     const fullGame = await apiRequest(`/api/games/${game.slug}`);
     selectedGame.value = fullGame;
     isEditGameModalOpen.value = true;
@@ -131,12 +135,29 @@ async function handleDeleteGame(game) {
     return;
   }
 
+  const password = window.prompt(`Enter your password to delete "${game.name}":`);
+  if (password === null) {
+    return;
+  }
+
+  const trimmedPassword = password.trim();
+  if (!trimmedPassword) {
+    loadError.value = "Password is required to delete a game.";
+    return;
+  }
+
   deletingGameId.value = game.id;
   loadError.value = "";
 
   try {
-    await apiRequest(`/api/games/${game.id}`, { method: "DELETE" });
+    await apiRequest(`/api/games/${game.id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ password: trimmedPassword }),
+    });
     games.value = games.value.filter((item) => item.id !== game.id);
+    featuredGames.value = featuredGames.value.filter((item) => item.id !== game.id);
+    newGames.value = newGames.value.filter((item) => item.id !== game.id);
+    recentSubscribers.value = recentSubscribers.value.filter((item) => String(item.game_id) !== String(game.game_id));
   } catch (error) {
     loadError.value = error?.message || "Could not delete game";
   } finally {
@@ -151,20 +172,15 @@ onMounted(() => {
 
 <template>
   <div class="space-y-8">
-    <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.35),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
-      <div class="pointer-events-none absolute -right-12 top-0 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
-      <div class="pointer-events-none absolute bottom-0 left-10 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
-
-      <div class="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-        <div class="max-w-2xl">
-          <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">
-            Adventure Arcade Console
-          </p>
-          <h1 class="mt-3 text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">
-            Dashboard
-          </h1>
-          <p class="mt-3 max-w-xl text-sm leading-6 text-emerald-950/70 md:text-base">
-            Command your game worlds, watch new challengers arrive, and keep the arcade floor feeling alive.
+    <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
+      <div class="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
+      <div class="pointer-events-none absolute bottom-0 left-12 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
+      <div class="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div class="max-w-3xl">
+          <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Dashboard</p>
+          <h1 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950 md:text-3xl">Game overview</h1>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
+            Browse every world in your lineup and jump straight into the detail view for players, activity, and health checks.
           </p>
         </div>
         <div class="flex shrink-0 justify-end">
@@ -179,20 +195,20 @@ onMounted(() => {
       </div>
 
       <div class="relative mt-6 grid gap-3 sm:grid-cols-3">
-        <div
-          v-for="stat in dashboardStats"
-          :key="stat.label"
-          class="overflow-hidden rounded-2xl border border-white/60 bg-white/70 p-4 backdrop-blur"
+        <RouterLink
+          :to="{ name: 'games' }"
+          class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/85"
         >
-          <div class="absolute inset-x-0 top-0 h-16 bg-gradient-to-r" :class="stat.accent" />
-          <div class="relative">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.25em] text-emerald-900/55">
-              {{ stat.label }}
-            </p>
-            <p class="mt-2 text-2xl font-bold tracking-tight text-emerald-950">
-              {{ stat.value }}
-            </p>
-          </div>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">View All Games</p>
+          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ games.length }}</p>
+        </RouterLink>
+        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Featured Games</p>
+          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ featuredGames.length }}</p>
+        </div>
+        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">New Games</p>
+          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ newGames.length }}</p>
         </div>
       </div>
     </section>
@@ -219,17 +235,17 @@ onMounted(() => {
         v-if="isLoading"
         class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
       >
-        Loading games…
+        Loading featured games…
       </div>
       <div
-        v-else-if="games.length === 0"
+        v-else-if="featuredGames.length === 0"
         class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
       >
-        No games yet. Use <span class="font-semibold text-emerald-900">Add game</span> to create one.
+        No featured games yet. Add game activity to populate this section.
       </div>
       <div v-else class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         <article
-          v-for="(game, index) in games"
+          v-for="(game, index) in featuredGames"
           :key="game.id"
           class="group relative overflow-hidden rounded-[26px] border shadow-[0_20px_60px_-36px_rgba(20,83,45,0.55)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_-36px_rgba(20,83,45,0.65)]"
           :class="getGameCardTheme(index).shell"
@@ -258,6 +274,7 @@ onMounted(() => {
                   Ready
                 </div>
               </div>
+
               <div class="min-w-0 flex-1 pt-1">
                 <div
                   class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white"
@@ -268,9 +285,116 @@ onMounted(() => {
                 <p class="mt-3 truncate text-xl font-bold tracking-tight text-white">
                   {{ game.name }}
                 </p>
-                <!-- <p class="mt-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-100/80">
-                  Game Secret Key: {{ game.gamesecretkey }}
-                </p> -->
+              </div>
+            </div>
+
+            <div class="flex min-w-0 flex-1 flex-col px-4 pb-4">
+              <div class="rounded-2xl bg-emerald-50/80 p-4 ring-1 ring-inset ring-emerald-100">
+                <p class="line-clamp-3 text-sm leading-6 text-emerald-950/75">
+                  {{ game.description || "No description yet. Add lore, action, or a hook to bring this arcade world to life." }}
+                </p>
+              </div>
+              <div class="mt-4 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-900/45">
+                    Added {{ formatDateTime(game.created_at) }}
+                  </p>
+                  <p class="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-800/65">
+                    {{ game.total_players ?? 0 }} players
+                  </p>
+                </div>
+                <span class="inline-flex items-center rounded-full bg-emerald-950 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-100">
+                  Enter
+                </span>
+              </div>
+            </div>
+          </button>
+
+          <div class="flex gap-2 border-t border-emerald-100/80 bg-white/80 px-4 py-3 backdrop-blur">
+            <button
+              type="button"
+              class="flex-1 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+              :class="getGameCardTheme(index).button"
+              :disabled="editingGameId === game.id"
+              @click="openEditGameModal(game)"
+            >
+              {{ editingGameId === game.id ? "Loading..." : "Edit" }}
+            </button>
+            <button
+              type="button"
+              class="flex-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="deletingGameId === game.id"
+              @click="handleDeleteGame(game)"
+            >
+              {{ deletingGameId === game.id ? "Deleting…" : "Delete" }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="space-y-5">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Launch Queue</p>
+          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">New games</h2>
+        </div>
+        <p class="text-sm text-emerald-900/55">Latest 3</p>
+      </div>
+      <div
+        v-if="isLoading"
+        class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
+      >
+        Loading new games…
+      </div>
+      <div
+        v-else-if="newGames.length === 0"
+        class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
+      >
+        No new games yet.
+      </div>
+      <div v-else class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <article
+          v-for="(game, index) in newGames"
+          :key="game.id"
+          class="group relative overflow-hidden rounded-[26px] border shadow-[0_20px_60px_-36px_rgba(20,83,45,0.55)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_-36px_rgba(20,83,45,0.65)]"
+          :class="getGameCardTheme(index).shell"
+        >
+          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-95" :class="getGameCardTheme(index).frame" />
+          <div class="pointer-events-none absolute -right-10 top-10 h-24 w-24 rounded-full blur-3xl" :class="getGameCardTheme(index).glow" />
+
+          <button
+            type="button"
+            class="relative flex min-w-0 flex-1 flex-col text-left"
+            @click="openGameDetail(game.slug)"
+          >
+            <div class="flex items-start gap-4 p-4 pt-5">
+              <div class="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-emerald-950/80 shadow-lg shadow-emerald-950/25 ring-1 ring-white/10">
+                <img
+                  v-if="game.image_url"
+                  :src="resolveAssetUrl(game.image_url)"
+                  :alt="game.name"
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                />
+                <div
+                  v-else
+                  class="flex h-full w-full items-center justify-center bg-emerald-950 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-100/70"
+                >
+                  Ready
+                </div>
+              </div>
+
+              <div class="min-w-0 flex-1 pt-1">
+                <div
+                  class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white"
+                  :class="getGameCardTheme(index).badge"
+                >
+                  Game ID: {{ game.game_id }}
+                </div>
+                <p class="mt-3 truncate text-xl font-bold tracking-tight text-white">
+                  {{ game.name }}
+                </p>
               </div>
             </div>
 
@@ -297,14 +421,16 @@ onMounted(() => {
               class="flex-1 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
               :class="getGameCardTheme(index).button"
               :disabled="editingGameId === game.id"
-              @click="openEditGameModal(game)">
+              @click="openEditGameModal(game)"
+            >
               {{ editingGameId === game.id ? "Loading..." : "Edit" }}
             </button>
             <button
               type="button"
               class="flex-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="deletingGameId === game.id"
-              @click="handleDeleteGame(game)">
+              @click="handleDeleteGame(game)"
+            >
               {{ deletingGameId === game.id ? "Deleting…" : "Delete" }}
             </button>
           </div>
@@ -315,45 +441,48 @@ onMounted(() => {
     <section class="space-y-5">
       <div class="flex items-end justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Player Trail</p>
-          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Recent subscribers</h2>
+          
+          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Recent Subscribers</h2>
         </div>
-        <p class="text-sm text-emerald-900/55">Latest 10</p>
+        <p class="text-sm text-emerald-900/55">Latest 5</p>
       </div>
       <div class="overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.22em] text-emerald-800/70">
               <tr>
-                <th class="px-4 py-3">Phone</th>
-                <th class="px-4 py-3">Game</th>
-                <th class="px-4 py-3">Subscribed</th>
+                <th class="px-4 py-3">Phone Number</th>
+                <th class="px-4 py-3">Game ID</th>
+                <th class="px-4 py-3">Verified</th>
+                <th class="px-4 py-3">Created</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-emerald-100/80">
               <tr v-if="isLoading">
-                <td colspan="3" class="px-4 py-8 text-center text-emerald-900/55">Loading…</td>
+                <td colspan="4" class="px-4 py-10 text-center text-emerald-900/55">Loading recent subscribers…</td>
               </tr>
               <tr v-else-if="recentSubscribers.length === 0">
-                <td colspan="3" class="px-4 py-8 text-center text-emerald-900/55">
-                  No subscribers yet.
-                </td>
+                <td colspan="4" class="px-4 py-10 text-center text-emerald-900/55">No recent subscribers found.</td>
               </tr>
-              <tr v-for="subscriber in recentSubscribers" :key="subscriber.id" class="transition hover:bg-emerald-50/70">
-                <td class="whitespace-nowrap px-4 py-3 font-medium text-emerald-950">
-                  {{ subscriber.phone_number }}
+              <tr
+                v-for="subscriber in recentSubscribers"
+                :key="subscriber.id"
+                class="transition hover:bg-emerald-50/70"
+              >
+                <td class="px-4 py-3">
+                  <span class="font-semibold text-emerald-950">
+                    {{ subscriber.phone || "—" }}
+                  </span>
                 </td>
-                <td class="px-4 py-3 text-emerald-900/80">
-                  <RouterLink
-                    v-if="subscriber.game?.game_id"
-                    :to="{ name: 'game-detail', params: { gameId: String(subscriber.game.slug) } }"
-                    class="font-medium text-emerald-800 hover:text-emerald-600"
-                  >
-                    {{ subscriber.game.name }}
-                  </RouterLink>
-                  <span v-else>—</span>
+                <td class="px-4 py-3 text-emerald-900/65">
+                  <span class="inline-flex rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
+                    {{ subscriber.game_id || "—" }}
+                  </span>
                 </td>
                 <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
+                  {{ subscriber.is_verified ? "Yes" : "No" }}
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-emerald-900/55">
                   {{ formatDateTime(subscriber.created_at) }}
                 </td>
               </tr>
