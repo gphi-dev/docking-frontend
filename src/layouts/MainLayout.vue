@@ -1,8 +1,9 @@
 <script setup>
-import { RouterLink, RouterView, useRouter } from "vue-router";
+import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 
 const authStore = useAuthStore();
+const route = useRoute();
 const router = useRouter();
 
 const navigationLinks = [
@@ -16,53 +17,88 @@ function handleLogout() {
   authStore.logout();
   router.push({ name: "login" });
 }
+
+function isNavigationActive(routeName) {
+  if (routeName === "games") {
+    return route.name === "games" || route.name === "game-detail";
+  }
+
+  return route.name === routeName;
+}
 </script>
 
 <template>
-  <div class="flex min-h-full">
+  <div class="flex min-h-full bg-[radial-gradient(circle_at_top_left,rgba(187,247,208,0.38),transparent_32%),linear-gradient(135deg,#f7fee7,#f0fdf4_42%,#ecfdf5)]">
     <aside
-      class="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-900 text-slate-100 md:flex"
+      class="relative hidden w-72 shrink-0 overflow-hidden border-r border-emerald-900/30 bg-[radial-gradient(circle_at_top_left,rgba(132,204,22,0.24),transparent_35%),linear-gradient(180deg,#052e16,#064e3b_50%,#022c22)] text-emerald-50 shadow-[18px_0_60px_-38px_rgba(2,44,34,0.85)] md:flex md:flex-col"
     >
-      <div class="flex items-center gap-2 border-b border-slate-800 px-5 py-4">
-        <div
-          class="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/20 text-sm font-semibold text-sky-300"
-        >
-          DA
+      <div class="pointer-events-none absolute -left-12 top-16 h-44 w-44 rounded-full bg-lime-300/10 blur-3xl" />
+      <div class="pointer-events-none absolute bottom-24 right-0 h-32 w-32 rounded-full bg-emerald-300/10 blur-3xl" />
+
+      <div class="relative border-b border-white/10 px-5 py-5">
+        <div class="flex items-center gap-3">
+          <div
+            class="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-300/15 text-sm font-black tracking-tight text-lime-100 shadow-lg shadow-emerald-950/30"
+          >
+            DA
+          </div>
+          <div class="min-w-0">
+            <p class="truncate text-base font-bold tracking-tight text-white">Docking Admin</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/60">Adventure Ops</p>
+          </div>
         </div>
-        <div>
-          <p class="text-sm font-semibold tracking-tight">Docking Admin</p>
-          <p class="text-xs text-slate-400">Operations</p>
+        <div class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+          <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-lime-100/60">Signed in as</p>
+          <div class="mt-2 flex items-center justify-between">
+            <p class="text-sm font-semibold text-white">{{ authStore.adminUser?.username || "admin" }}</p>
+            <span class="h-2.5 w-2.5 rounded-full bg-lime-300 shadow-[0_0_20px_rgba(190,242,100,0.9)]" />
+          </div>
         </div>
       </div>
-      <nav class="flex flex-1 flex-col gap-1 p-3">
+
+      <nav class="relative flex flex-1 flex-col gap-2 p-4">
+        <p class="px-3 pt-2 text-[11px] font-bold uppercase tracking-[0.28em] text-emerald-100/40">Navigation</p>
         <RouterLink
           v-for="navigationItem in navigationLinks"
           :key="navigationItem.label"
           :to="navigationItem.to"
-          class="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
-          active-class="bg-slate-800 text-white"
+          class="group rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:border-white/10 hover:bg-white/10 hover:text-white"
+          :class="
+            isNavigationActive(navigationItem.to.name)
+              ? 'border-lime-300/30 bg-lime-300/15 text-white shadow-lg shadow-emerald-950/20'
+              : 'border-transparent text-emerald-100/70'
+          "
         >
-          {{ navigationItem.label }}
+          <span class="flex items-center justify-between gap-3">
+            <span>{{ navigationItem.label }}</span>
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-200/30 transition group-hover:bg-lime-200" />
+          </span>
         </RouterLink>
       </nav>
-      <div class="border-t border-slate-800 p-4 text-xs text-slate-500">
-        Signed in as
-        <span class="font-medium text-slate-300">{{ authStore.adminUser?.username || "admin" }}</span>
+
+      <div class="relative border-t border-white/10 p-4">
+        <div class="rounded-2xl border border-white/10 bg-white/10 p-4">
+          <p class="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-100/45">Signed in as</p>
+          <p class="mt-1 truncate text-sm font-semibold text-white">
+            {{ authStore.adminUser?.username || "admin" }}
+          </p>
+        </div>
       </div>
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">
       <header
-        class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur md:px-8"
+        class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-emerald-200/70 bg-white/75 px-4 py-3 shadow-sm shadow-emerald-950/5 backdrop-blur-xl md:px-8"
       >
         <div class="flex min-w-0 items-center gap-3">
           <div
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/15 text-sm font-semibold text-sky-700 md:hidden"
+            class="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-950 text-sm font-black tracking-tight text-lime-100 shadow-sm md:hidden"
           >
             DA
           </div>
           <div class="min-w-0 md:hidden">
-            <p class="truncate text-sm font-semibold text-slate-900">Docking Admin</p>
+            <p class="truncate text-sm font-bold text-emerald-950">Docking Admin</p>
+            <p class="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800/50">Adventure Ops</p>
           </div>
         </div>
 
@@ -71,8 +107,12 @@ function handleLogout() {
             v-for="navigationItem in navigationLinks"
             :key="`m-${navigationItem.label}`"
             :to="navigationItem.to"
-            class="whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-            active-class="bg-slate-900 text-white hover:bg-slate-900"
+            class="whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:bg-emerald-50"
+            :class="
+              isNavigationActive(navigationItem.to.name)
+                ? 'border-emerald-200 bg-emerald-950 text-lime-100 hover:bg-emerald-950'
+                : 'border-transparent text-emerald-900/65'
+            "
           >
             {{ navigationItem.label }}
           </RouterLink>
@@ -80,7 +120,7 @@ function handleLogout() {
 
         <button
           type="button"
-          class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          class="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white/90 px-4 py-2 text-sm font-semibold text-emerald-900 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
           @click="handleLogout"
         >
           Logout

@@ -16,6 +16,48 @@ function getApiBaseUrl() {
   return String(configuredBaseUrl).trim().replace(/\/+$/, "");
 }
 
+function getAssetBaseUrl() {
+  const apiBaseUrl = getApiBaseUrl();
+  if (apiBaseUrl) {
+    return apiBaseUrl;
+  }
+
+  const devProxyTarget = import.meta.env.VITE_DEV_API_PROXY_TARGET;
+  if (import.meta.env.DEV && devProxyTarget) {
+    return String(devProxyTarget).replace(/\/$/, "");
+  }
+
+  return "";
+}
+
+export function resolveAssetUrl(path) {
+  if (!path || typeof path !== "string") {
+    return "";
+  }
+
+  const trimmedPath = path.trim();
+  if (!trimmedPath) {
+    return "";
+  }
+
+  if (
+    trimmedPath.startsWith("http://")
+    || trimmedPath.startsWith("https://")
+    || trimmedPath.startsWith("data:")
+    || trimmedPath.startsWith("blob:")
+  ) {
+    return trimmedPath;
+  }
+
+  const assetBaseUrl = getAssetBaseUrl();
+  if (!assetBaseUrl) {
+    return trimmedPath;
+  }
+
+  const normalizedPath = trimmedPath.startsWith("/") ? trimmedPath : `/${trimmedPath}`;
+  return `${assetBaseUrl}${normalizedPath}`;
+}
+
 export async function apiRequest(path, options = {}) {
   const baseUrl = getApiBaseUrl();
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
