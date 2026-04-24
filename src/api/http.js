@@ -49,6 +49,10 @@ export function resolveAssetUrl(path) {
     return trimmedPath;
   }
 
+  if (trimmedPath.startsWith("/")) {
+    return trimmedPath;
+  }
+
   const assetBaseUrl = getAssetBaseUrl();
   if (!assetBaseUrl) {
     return trimmedPath;
