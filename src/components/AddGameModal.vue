@@ -32,7 +32,14 @@ const isGameSecretKeyVisible = ref(false);
 const errorMessage = ref("");
 const isSubmitting = ref(false);
 const isLoadingNextGameId = ref(false);
+const isResizingImage = ref(false);
 let nextGameIdRequestId = 0;
+const maxImageUrlLength = 2048;
+const maxUploadedImageDataLength = 80000;
+const maxImageDimension = 900;
+const minImageDimension = 320;
+const initialImageQuality = 0.82;
+const minImageQuality = 0.48;
 
 function isEditMode() {
   return props.mode === "edit";
@@ -51,21 +58,47 @@ function resetForm() {
   errorMessage.value = "";
   isSubmitting.value = false;
   isLoadingNextGameId.value = false;
+  isResizingImage.value = false;
 }
 
 function populateForm() {
   name.value = props.game?.name ?? "";
   gameid.value = props.game?.game_id ?? "";
-  gamesecretkey.value = props.game?.gamesecretkey ?? "";
+  gamesecretkey.value = props.game?.game_secret_key ?? "";
   description.value = props.game?.description ?? "";
   imageUrl.value = props.game?.image_url ?? "";
-  imageSource.value = props.game?.image_url?.startsWith("data:image/") ? "upload" : "url";
-  uploadedImageData.value = imageSource.value === "upload" ? props.game?.image_url ?? "" : "";
+  imageSource.value = "url";
+  uploadedImageData.value = "";
   uploadedImageName.value = "";
   isGameSecretKeyVisible.value = false;
   errorMessage.value = "";
   isSubmitting.value = false;
   isLoadingNextGameId.value = false;
+  isResizingImage.value = false;
+}
+
+function extractGamesList(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  if (payload.data && typeof payload.data === "object" && Array.isArray(payload.data.games)) {
+    return payload.data.games;
+  }
+
+  if (Array.isArray(payload.games)) {
+    return payload.games;
+  }
+
+  return [];
 }
 
 function getNextGameId(games) {
@@ -83,7 +116,7 @@ async function loadNextGameId() {
 
   try {
     const payload = await apiRequest("/api/games");
-    const games = Array.isArray(payload) ? payload : [];
+    const games = extractGamesList(payload);
     if (requestId === nextGameIdRequestId && !isEditMode()) {
       gameid.value = String(getNextGameId(games));
     }
@@ -133,7 +166,106 @@ function handleImageSourceChange(source) {
   errorMessage.value = "";
 }
 
-function handleImageFileChange(event) {
+function validateImageUrl(value) {
+  if (!value) {
+    return "";
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.startsWith("data:image/")) {
+    if (trimmedValue.length > maxUploadedImageDataLength) {
+      return "Uploaded image is still too large. Please choose a smaller image.";
+    }
+
+    return "";
+  }
+
+  if (trimmedValue.startsWith("data:") || trimmedValue.startsWith("blob:")) {
+    return "Please use a hosted image URL, public asset path, or uploaded image file.";
+  }
+
+  if (trimmedValue.length > maxImageUrlLength) {
+    return "Image URL is too long. Please use a shorter hosted image URL or public asset path.";
+  }
+
+  return "";
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 KB";
+  }
+
+  return `${Math.ceil(bytes / 1024)} KB`;
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Could not load the selected image"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function drawResizedImage(image, maxDimension) {
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const scale = Math.min(1, maxDimension / Math.max(width, height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Could not prepare image resizing");
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return canvas;
+}
+
+async function resizeImageFile(file) {
+  const image = await loadImageFromFile(file);
+  let dimension = maxImageDimension;
+  let quality = initialImageQuality;
+
+  while (dimension >= minImageDimension) {
+    const canvas = drawResizedImage(image, dimension);
+
+    while (quality >= minImageQuality) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      if (dataUrl.length <= maxUploadedImageDataLength) {
+        return {
+          dataUrl,
+          width: canvas.width,
+          height: canvas.height,
+          byteLength: Math.ceil((dataUrl.length * 3) / 4),
+        };
+      }
+
+      quality -= 0.08;
+    }
+
+    dimension = Math.floor(dimension * 0.82);
+    quality = initialImageQuality;
+  }
+
+  throw new Error("Image is too large to upload after resizing. Please choose a smaller image.");
+}
+
+async function handleImageFileChange(event) {
   const [file] = event.target.files || [];
 
   if (!file) {
@@ -148,17 +280,23 @@ function handleImageFileChange(event) {
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    uploadedImageData.value = typeof reader.result === "string" ? reader.result : "";
-    uploadedImageName.value = file.name;
+  isResizingImage.value = true;
+  errorMessage.value = "";
+
+  try {
+    const resizedImage = await resizeImageFile(file);
+    uploadedImageData.value = resizedImage.dataUrl;
+    uploadedImageName.value = `${file.name} - resized ${resizedImage.width}x${resizedImage.height} (${formatBytes(
+      resizedImage.byteLength,
+    )})`;
     errorMessage.value = "";
-  };
-  reader.onerror = () => {
+  } catch (error) {
     clearUploadedImage();
-    errorMessage.value = "Could not read the selected image";
-  };
-  reader.readAsDataURL(file);
+    event.target.value = "";
+    errorMessage.value = error?.message || "Could not resize the selected image";
+  } finally {
+    isResizingImage.value = false;
+  }
 }
 
 async function handleSubmit() {
@@ -176,6 +314,17 @@ async function handleSubmit() {
     return;
   }
 
+  const imageUrlError = validateImageUrl(resolvedImageUrl);
+  if (imageUrlError) {
+    errorMessage.value = imageUrlError;
+    return;
+  }
+
+  if (!Number.isInteger(Number(gameid.value)) || Number(gameid.value) < 1) {
+    errorMessage.value = "Game ID must be a positive integer";
+    return;
+  }
+
   isSubmitting.value = true;
   try {
     const payload = {
@@ -186,7 +335,7 @@ async function handleSubmit() {
     };
 
     if (!isEditMode() || gamesecretkey.value.trim()) {
-      payload.gamesecretkey = gamesecretkey.value.trim();
+      payload.game_secret_key = gamesecretkey.value.trim();
     }
 
     const savedGame = await apiRequest(isEditMode() ? `/api/games/${props.game?.id}` : "/api/games", {
@@ -321,7 +470,7 @@ async function handleSubmit() {
                     ? 'border-sky-500 bg-sky-50 text-sky-700'
                     : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                 "
-                :disabled="isSubmitting"
+                :disabled="isSubmitting || isResizingImage"
                 @click="handleImageSourceChange('url')"
               >
                 Image URL / Path
@@ -334,7 +483,7 @@ async function handleSubmit() {
                     ? 'border-sky-500 bg-sky-50 text-sky-700'
                     : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                 "
-                :disabled="isSubmitting"
+                :disabled="isSubmitting || isResizingImage"
                 @click="handleImageSourceChange('upload')"
               >
                 Upload Image
@@ -365,9 +514,12 @@ async function handleSubmit() {
               type="file"
               accept="image/*"
               class="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-sky-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-sky-700"
-              :disabled="isSubmitting"
+              :disabled="isSubmitting || isResizingImage"
               @change="handleImageFileChange"
             />
+            <p v-if="isResizingImage" class="text-xs font-medium text-sky-700">
+              Resizing image...
+            </p>
             <div v-if="uploadedImageName" class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
               <p class="truncate text-xs text-slate-600">
                 {{ uploadedImageName }}
@@ -375,14 +527,14 @@ async function handleSubmit() {
               <button
                 type="button"
                 class="shrink-0 text-xs font-semibold text-rose-600 transition hover:text-rose-700"
-                :disabled="isSubmitting"
+                :disabled="isSubmitting || isResizingImage"
                 @click="clearUploadedImage"
               >
                 Remove
               </button>
             </div>
             <p class="text-xs text-slate-500">
-              Uploaded files are stored as the game image value and shown immediately in the app.
+              Uploaded files are resized before saving to keep the request small.
             </p>
           </div>
 
@@ -415,9 +567,9 @@ async function handleSubmit() {
             <button
               type="submit"
               class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60"
-              :disabled="isSubmitting || isLoadingNextGameId"
+              :disabled="isSubmitting || isLoadingNextGameId || isResizingImage"
             >
-              {{ isSubmitting ? "Saving…" : isLoadingNextGameId ? "Loading…" : isEditMode() ? "Update game" : "Create game" }}
+              {{ isSubmitting ? "Saving…" : isLoadingNextGameId || isResizingImage ? "Loading…" : isEditMode() ? "Update game" : "Create game" }}
             </button>
           </div>
         </form>
