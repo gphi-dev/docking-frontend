@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { apiRequest } from "../api/http";
+import { extractUsermobileRecords } from "../api/response";
 
 const usersmobile = ref([]);
 
@@ -25,8 +26,8 @@ async function loadUsersmobile() {
   loadError.value = "";
   isLoadingMobile.value = true;
   try {
-    const payload = await apiRequest("api/usermobile");
-    usersmobile.value = Array.isArray(payload) ? payload : [];
+    const payload = await apiRequest("/api/usermobile");
+    usersmobile.value = extractUsermobileRecords(payload);
   } catch (error) {
     loadError.value = error?.message || "Failed to load mobile number of users";
   } finally {

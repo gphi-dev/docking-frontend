@@ -8,6 +8,30 @@ const games = ref([]);
 const loadError = ref("");
 const isLoading = ref(true);
 
+function extractGamesList(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  if (payload.data && typeof payload.data === "object" && Array.isArray(payload.data.games)) {
+    return payload.data.games;
+  }
+
+  if (Array.isArray(payload.games)) {
+    return payload.games;
+  }
+
+  return [];
+}
+
 function formatDateTime(isoString) {
   if (!isoString) {
     return "—";
@@ -27,7 +51,7 @@ async function loadGames() {
   isLoading.value = true;
   try {
     const payload = await apiRequest("/api/games");
-    games.value = Array.isArray(payload) ? payload : [];
+    games.value = extractGamesList(payload);
   } catch (error) {
     loadError.value = error?.message || "Failed to load games";
   } finally {
