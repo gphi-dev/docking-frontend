@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { apiRequest } from "../api/http";
+import { apiRequest, resolveAssetUrl } from "../api/http";
 import AddGameModal from "../components/AddGameModal.vue";
 
 const router = useRouter();
@@ -13,6 +13,7 @@ const isEditGameModalOpen = ref(false);
 const selectedGame = ref(null);
 const editingGameId = ref(null);
 const deletingGameId = ref(null);
+const failedImageUrls = ref(new Set());
 
 function extractGamesList(payload) {
   if (Array.isArray(payload)) {
@@ -50,6 +51,34 @@ function formatDateTime(isoString) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function getGameCardTheme(index) {
+  const themes = [
+    {
+      shell: "border-emerald-200/80 bg-white/95 hover:border-emerald-400 hover:shadow-emerald-950/10",
+      frame: "from-emerald-950 via-emerald-900 to-lime-900",
+      glow: "bg-emerald-400/20",
+      badge: "bg-emerald-400/15 text-emerald-800 ring-1 ring-inset ring-emerald-500/20",
+      button: "border-emerald-200 text-emerald-900 hover:bg-emerald-50",
+    },
+    {
+      shell: "border-lime-200/80 bg-white/95 hover:border-lime-400 hover:shadow-lime-950/10",
+      frame: "from-lime-950 via-green-900 to-emerald-900",
+      glow: "bg-lime-400/20",
+      badge: "bg-lime-400/15 text-lime-900 ring-1 ring-inset ring-lime-500/20",
+      button: "border-lime-200 text-lime-900 hover:bg-lime-50",
+    },
+    {
+      shell: "border-teal-200/80 bg-white/95 hover:border-teal-400 hover:shadow-teal-950/10",
+      frame: "from-teal-950 via-emerald-900 to-green-900",
+      glow: "bg-teal-400/20",
+      badge: "bg-teal-400/15 text-teal-900 ring-1 ring-inset ring-teal-500/20",
+      button: "border-teal-200 text-teal-900 hover:bg-teal-50",
+    },
+  ];
+
+  return themes[index % themes.length];
 }
 
 async function loadGames() {
@@ -130,6 +159,18 @@ function handleGameCreated() {
   loadGames();
 }
 
+function hasImageLoadFailed(imageUrl) {
+  return Boolean(imageUrl && failedImageUrls.value.has(imageUrl));
+}
+
+function handleImageLoadError(imageUrl) {
+  if (!imageUrl) {
+    return;
+  }
+
+  failedImageUrls.value = new Set([...failedImageUrls.value, imageUrl]);
+}
+
 onMounted(() => {
   loadGames();
 });
@@ -170,7 +211,7 @@ onMounted(() => {
     <div class="flex items-end justify-between gap-3">
       <div>
         <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">World Directory</p>
-        <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Game roster</h2>
+        <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">All game cards</h2>
       </div>
     </div>
 
@@ -178,71 +219,101 @@ onMounted(() => {
       {{ loadError }}
     </p>
 
-    <div class="overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.24em] text-emerald-800/70">
-            <tr>
-              <th class="px-4 py-3">Game ID</th>
-              <th class="px-4 py-3">Name</th>
-              <th class="px-4 py-3">Description</th>
-              <th class="px-4 py-3">Created</th>
-              <th class="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-emerald-100/80">
-            <tr v-if="isLoading">
-              <td colspan="5" class="px-4 py-10 text-center text-emerald-900/55">Loading games…</td>
-            </tr>
-            <tr v-else-if="games.length === 0">
-              <td colspan="5" class="px-4 py-10 text-center text-emerald-900/55">No games found.</td>
-            </tr>
-            <tr
-              v-for="game in games"
-              :key="game.id"
-              class="cursor-pointer transition hover:bg-emerald-50/70"
-              role="link"
-              tabindex="0"
-              @click="openGameRow(game.slug)"
-              @keydown.enter.prevent="openGameRow(game.slug)">
-              <td class="px-4 py-3">
-                <span class="inline-flex rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
-                  {{ game.game_id || "—" }}
-                </span>
-              </td>
-              <td class="px-4 py-3 font-semibold text-emerald-950">
+    <div
+      v-if="isLoading"
+      class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
+    >
+      Loading games…
+    </div>
+    <div
+      v-else-if="games.length === 0"
+      class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
+    >
+      No games found.
+    </div>
+    <div v-else class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <article
+        v-for="(game, index) in games"
+        :key="game.id"
+        class="group relative overflow-hidden rounded-[26px] border shadow-[0_20px_60px_-36px_rgba(20,83,45,0.55)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_-36px_rgba(20,83,45,0.65)]"
+        :class="getGameCardTheme(index).shell"
+      >
+        <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-95" :class="getGameCardTheme(index).frame" />
+        <div class="pointer-events-none absolute -right-10 top-10 h-24 w-24 rounded-full blur-3xl" :class="getGameCardTheme(index).glow" />
+
+        <button
+          type="button"
+          class="relative flex min-w-0 flex-1 flex-col text-left"
+          @click="openGameRow(game.slug)"
+        >
+          <div class="flex items-start gap-4 p-4 pt-5">
+            <div class="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-emerald-950/80 shadow-lg shadow-emerald-950/25 ring-1 ring-white/10">
+              <img
+                v-if="game.image_url && !hasImageLoadFailed(game.image_url)"
+                :src="resolveAssetUrl(game.image_url)"
+                :alt="game.name"
+                class="h-full w-full object-cover"
+                loading="lazy"
+                @error="handleImageLoadError(game.image_url)"
+              />
+              <div
+                v-else
+                class="flex h-full w-full items-center justify-center bg-emerald-950 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-100/70"
+              >
+                Ready
+              </div>
+            </div>
+
+            <div class="min-w-0 flex-1 pt-1">
+              <div
+                class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white"
+                :class="getGameCardTheme(index).badge"
+              >
+                Game ID: {{ game.game_id || "—" }}
+              </div>
+              <p class="mt-3 truncate text-xl font-bold tracking-tight text-white">
                 {{ game.name }}
-              </td>
-              <td class="max-w-md px-4 py-3 text-emerald-900/65">
-                <span class="line-clamp-2">{{ game.description || "—" }}</span>
-              </td>
-              <td class="whitespace-nowrap px-4 py-3 text-emerald-900/55">
-                {{ formatDateTime(game.created_at) }}
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    class="rounded-xl border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="editingGameId === game.id"
-                    @click.stop="openEditGameModal(game)"
-                  >
-                    {{ editingGameId === game.id ? "Loading..." : "Edit" }}
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="deletingGameId === game.id"
-                    @click.stop="handleDeleteGame(game)"
-                  >
-                    {{ deletingGameId === game.id ? "Deleting…" : "Delete" }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              </p>
+            </div>
+          </div>
+
+          <div class="flex min-w-0 flex-1 flex-col px-4 pb-4">
+            <div class="rounded-2xl bg-emerald-50/80 p-4 ring-1 ring-inset ring-emerald-100">
+              <p class="line-clamp-3 text-sm leading-6 text-emerald-950/75">
+                {{ game.description || "No description yet. Add lore, action, or a hook to bring this arcade world to life." }}
+              </p>
+            </div>
+            <div class="mt-4 flex items-center justify-between gap-3">
+              <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-900/45">
+                Added {{ formatDateTime(game.created_at) }}
+              </p>
+              <span class="inline-flex items-center rounded-full bg-emerald-950 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-100">
+                Enter
+              </span>
+            </div>
+          </div>
+        </button>
+
+        <div class="flex gap-2 border-t border-emerald-100/80 bg-white/80 px-4 py-3 backdrop-blur">
+          <button
+            type="button"
+            class="flex-1 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+            :class="getGameCardTheme(index).button"
+            :disabled="editingGameId === game.id"
+            @click="openEditGameModal(game)"
+          >
+            {{ editingGameId === game.id ? "Loading..." : "Edit" }}
+          </button>
+          <button
+            type="button"
+            class="flex-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="deletingGameId === game.id"
+            @click="handleDeleteGame(game)"
+          >
+            {{ deletingGameId === game.id ? "Deleting…" : "Delete" }}
+          </button>
+        </div>
+      </article>
     </div>
 
     <AddGameModal

@@ -23,6 +23,7 @@ const usermobilesLoadError = ref("");
 const isLoading = ref(true);
 const isSubscribersLoading = ref(false);
 const isUsermobilesLoading = ref(false);
+const hasGameImageLoadFailed = ref(false);
 
 // props.gameId is treated as a slug by the router
 // const numericGameId = computed(() => Number(props.gameId));
@@ -151,6 +152,7 @@ async function loadInitial() {
   loadError.value = "";
   usermobilesLoadError.value = "";
   isLoading.value = true;
+  hasGameImageLoadFailed.value = false;
   game.value = null;
   subscribers.value = [];
   usermobiles.value = [];
@@ -228,10 +230,11 @@ watch(
         <div class="relative grid gap-6 md:grid-cols-[minmax(0,220px)_1fr] md:items-start">
           <div class="overflow-hidden rounded-[24px] border border-white/40 bg-emerald-950/90 shadow-xl shadow-emerald-950/15 ring-1 ring-white/10">
             <img
-              v-if="game.image_url"
+              v-if="game.image_url && !hasGameImageLoadFailed"
               :src="resolveAssetUrl(game.image_url)"
               :alt="game.name"
               class="h-full w-full max-h-60 object-cover"
+              @error="hasGameImageLoadFailed = true"
             />
             <div
               v-else

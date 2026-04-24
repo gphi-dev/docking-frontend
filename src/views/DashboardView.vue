@@ -17,6 +17,7 @@ const isEditGameModalOpen = ref(false);
 const selectedGame = ref(null);
 const deletingGameId = ref(null);
 const editingGameId = ref(null);
+const failedImageUrls = ref(new Set());
 
 function extractDashboardCollections(payload) {
   if (payload && typeof payload === "object" && payload.data && typeof payload.data === "object") {
@@ -104,6 +105,18 @@ function handleGameCreated() {
 
 function handleGameUpdated() {
   loadDashboardData();
+}
+
+function hasImageLoadFailed(imageUrl) {
+  return Boolean(imageUrl && failedImageUrls.value.has(imageUrl));
+}
+
+function handleImageLoadError(imageUrl) {
+  if (!imageUrl) {
+    return;
+  }
+
+  failedImageUrls.value = new Set([...failedImageUrls.value, imageUrl]);
 }
 
 function openGameDetail(gameId) {
@@ -261,11 +274,12 @@ onMounted(() => {
             <div class="flex items-start gap-4 p-4 pt-5">
               <div class="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-emerald-950/80 shadow-lg shadow-emerald-950/25 ring-1 ring-white/10">
                 <img
-                  v-if="game.image_url"
+                  v-if="game.image_url && !hasImageLoadFailed(game.image_url)"
                   :src="resolveAssetUrl(game.image_url)"
                   :alt="game.name"
                   class="h-full w-full object-cover"
                   loading="lazy"
+                  @error="handleImageLoadError(game.image_url)"
                 />
                 <div
                   v-else
@@ -371,11 +385,12 @@ onMounted(() => {
             <div class="flex items-start gap-4 p-4 pt-5">
               <div class="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-emerald-950/80 shadow-lg shadow-emerald-950/25 ring-1 ring-white/10">
                 <img
-                  v-if="game.image_url"
+                  v-if="game.image_url && !hasImageLoadFailed(game.image_url)"
                   :src="resolveAssetUrl(game.image_url)"
                   :alt="game.name"
                   class="h-full w-full object-cover"
                   loading="lazy"
+                  @error="handleImageLoadError(game.image_url)"
                 />
                 <div
                   v-else
