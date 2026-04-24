@@ -471,7 +471,7 @@ async function handleSubmit() {
               {{ uploadedImagePath }}
             </p>
             <p class="text-xs text-slate-500">
-              Save the image file in public/uploads/games. The API stores only this public path.
+              Save the image file in the backend public/uploads/games folder. The API stores only this public path.
             </p>
           </div>
 

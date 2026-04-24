@@ -49,6 +49,12 @@ export function resolveAssetUrl(path) {
     return trimmedPath;
   }
 
+  if (trimmedPath.startsWith("/uploads/") || trimmedPath.startsWith("uploads/")) {
+    const assetBaseUrl = getAssetBaseUrl();
+    const normalizedUploadPath = trimmedPath.startsWith("/") ? trimmedPath : `/${trimmedPath}`;
+    return assetBaseUrl ? `${assetBaseUrl}${normalizedUploadPath}` : normalizedUploadPath;
+  }
+
   if (trimmedPath.startsWith("/")) {
     return trimmedPath;
   }
