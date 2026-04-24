@@ -158,41 +158,38 @@ onMounted(() => {
 
 <template>
   <div class="space-y-8">
-    <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
+    <section class="flex items-center justify-between gap-4">
+      
+      <div>
+        <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
       <div class="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
       <div class="pointer-events-none absolute bottom-0 left-12 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
-      <div class="relative flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-        <div class="max-w-2xl">
-          <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">Dashboard</p>
-          <h1 class="mt-3 text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">Game overview</h1>
+      <div class="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Dashboard</p>
+        <h1 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950 md:text-3xl">Game overview</h1>
           <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
-            Track the full catalog, spotlight your featured rooms, and keep the newest launches visible at a glance.
+            Browse every world in your lineup and jump straight into the detail view for players, activity, and health checks.
           </p>
         </div>
-        <div class="flex shrink-0 justify-end">
-          <button
-            type="button"
-            class="inline-flex items-center justify-center rounded-full border border-emerald-800/10 bg-emerald-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:bg-emerald-900"
-            @click="isAddGameModalOpen = true"
-          >
-            Add game
-          </button>
-        </div>
-      </div>
-
-      <div class="relative mt-6 grid gap-3 sm:grid-cols-3">
-        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 backdrop-blur">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">All Games</p>
+        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Active Rooms</p>
           <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ games.length }}</p>
         </div>
-        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 backdrop-blur">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Featured Games</p>
-          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ featuredGames.length }}</p>
-        </div>
-        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 backdrop-blur">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">New Games</p>
-          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ newGames.length }}</p>
-        </div>
+      </div>
+    </section>
+
+      
+      </div>
+      
+      <div class="flex shrink-0 justify-end">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center rounded-full border border-emerald-800/10 bg-emerald-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:bg-emerald-900"
+          @click="isAddGameModalOpen = true"
+        >
+          Add game
+        </button>
       </div>
     </section>
 

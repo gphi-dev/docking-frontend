@@ -1,21 +1,43 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { apiRequest } from "../api/http";
 import { extractUsermobileRecords } from "../api/response";
 
-const usersmobile = ref([]);
+const PAGE_SIZE = 10;
 
+const games = ref([]);
+const usersmobile = ref([]);
 const loadError = ref("");
 const isLoadingMobile = ref(true);
-
-// State for filtering and search
 const selectedGameId = ref("");
-
-// State for pagination
 const currentPage = ref(1);
 const totalPages = ref(1);
 const totalUsers = ref(0);
 const isServerPaginated = ref(false);
+
+function extractGamesList(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  if (payload.data && typeof payload.data === "object" && Array.isArray(payload.data.games)) {
+    return payload.data.games;
+  }
+
+  if (Array.isArray(payload.games)) {
+    return payload.games;
+  }
+
+  return [];
+}
 
 const displayedUsersmobile = computed(() => {
   if (isServerPaginated.value) {
@@ -53,7 +75,7 @@ const usersRangeLabel = computed(() => {
 async function loadGames() {
   try {
     const payload = await apiRequest("/api/games");
-    games.value = Array.isArray(payload) ? payload : [];
+    games.value = extractGamesList(payload);
   } catch (error) {
     console.error("Failed to load games for filter:", error);
   }
@@ -63,8 +85,17 @@ async function loadUsersmobile() {
   loadError.value = "";
   isLoadingMobile.value = true;
   try {
-    const payload = await apiRequest("api/usermobile");
-    usersmobile.value = Array.isArray(payload) ? payload : [];
+    const payload = await apiRequest("/api/usermobile");
+    const records = extractUsermobileRecords(payload);
+
+    isServerPaginated.value = false;
+    totalUsers.value = records.length;
+    totalPages.value = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+    usersmobile.value = selectedGameId.value
+      ? records.filter((user) => String(user?.game_id ?? "") === String(selectedGameId.value))
+      : records;
+    totalUsers.value = usersmobile.value.length;
+    totalPages.value = Math.max(1, Math.ceil(usersmobile.value.length / PAGE_SIZE));
   } catch (error) {
     usersmobile.value = [];
     totalUsers.value = 0;
@@ -91,7 +122,6 @@ function getGameName(user) {
   return gameNameById.value.get(String(user?.game_id ?? "")) || "—";
 }
 
-// Watch for changes in filters and trigger a reload
 watch(selectedGameId, () => {
   currentPage.value = 1;
   loadUsersmobile();
@@ -145,33 +175,25 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody class="divide-y divide-emerald-100/80">
-            
             <tr v-if="isLoadingMobile">
-              <td colspan="2" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
+              <td colspan="3" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
             </tr>
-            
-            <tr v-else-if="usersmobile.length === 0">
-              <td colspan="2" class="px-4 py-10 text-center text-emerald-900/55">No mobile users found.</td>
+            <tr v-else-if="displayedUsersmobile.length === 0">
+              <td colspan="3" class="px-4 py-10 text-center text-emerald-900/55">No mobile users found.</td>
             </tr>
-            
-            <tr v-for="user in usersmobile" :key="user.id" class="hover:bg-emerald-50/70">
-              <td class="px-4 py-3 font-semibold text-emerald-950">
-                {{ user.phone }}
-              </td>
+            <tr v-for="user in displayedUsersmobile" :key="user.id" class="hover:bg-emerald-50/70">
               <td class="px-4 py-3 text-emerald-900/65">
                 <span class="inline-flex rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
                   {{ user.game_id }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-slate-600">
+              <td class="px-4 py-3 font-semibold text-emerald-950">
                 {{ getGameName(user) }}
               </td>
               <td class="px-4 py-3 font-semibold text-slate-900">
                 {{ user.phone }}
               </td>
-              
             </tr>
-            
           </tbody>
         </table>
       </div>
@@ -180,7 +202,7 @@ onMounted(() => {
     <!-- Pagination -->
     <div v-if="totalUsers > 0 && totalPages > 1" class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
       <p class="text-xs text-slate-500">
-        Page {{ currentPage }} of {{ totalPages }}
+        {{ usersRangeLabel }}
       </p>
 
       <div class="flex justify-end gap-2">
