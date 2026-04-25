@@ -41,7 +41,7 @@ const maxImageDimension = 900;
 const minImageDimension = 260;
 const initialImageQuality = 0.82;
 const minImageQuality = 0.42;
-const uploadPathPattern = /^\/?uploads\//;
+const legacyUploadPathPattern = /^\/?uploads\//;
 
 function isEditMode() {
   return props.mode === "edit";
@@ -158,11 +158,11 @@ function validateImageUrl(value) {
   }
 
   if (trimmedValue.startsWith("data:") || trimmedValue.startsWith("blob:")) {
-    return "Image URL must be a hosted URL or public asset path, not image data.";
+    return "Image URL must be a hosted URL or backend asset path, not image data.";
   }
 
   if (trimmedValue.length > maxImageUrlLength) {
-    return "Image URL is too long. Please use a shorter hosted image URL or public asset path.";
+    return "Image URL is too long. Please use a shorter hosted image URL or backend asset path.";
   }
 
   return "";
@@ -259,12 +259,12 @@ function normalizePublicImagePath(value) {
   return trimmedValue;
 }
 
-function isBackendUploadPath(value) {
-  return typeof value === "string" && uploadPathPattern.test(value.trim());
+function isLegacyBackendUploadPath(value) {
+  return typeof value === "string" && legacyUploadPathPattern.test(value.trim());
 }
 
-async function assertBackendUploadPathExists(value) {
-  if (!isBackendUploadPath(value)) {
+async function assertLegacyBackendUploadPathExists(value) {
+  if (!isLegacyBackendUploadPath(value)) {
     return;
   }
 
@@ -277,11 +277,11 @@ async function assertBackendUploadPathExists(value) {
       cache: "no-store",
     });
   } catch {
-    throw new Error(`Could not verify backend image path: ${normalizedPath}. Use Upload Image to save a local file.`);
+    throw new Error(`Could not verify backend image path: ${normalizedPath}. Use Upload Image to send a new file to S3.`);
   }
 
   if (!response.ok) {
-    throw new Error(`Image file not found on the backend: ${normalizedPath}. Use Upload Image to save a local file.`);
+    throw new Error(`Image file not found on the backend: ${normalizedPath}. Use Upload Image to send a new file to S3.`);
   }
 }
 
@@ -293,10 +293,10 @@ async function getPreparedImageUrl() {
   const rawImageValue = normalizePublicImagePath(imageUrl.value);
 
   if (typeof rawImageValue === "string" && rawImageValue.trim().startsWith("data:image/")) {
-    throw new Error("Image URL must be a hosted URL or public asset path, not base64 image data.");
+    throw new Error("Image URL must be a hosted URL or backend asset path, not base64 image data.");
   }
 
-  await assertBackendUploadPathExists(rawImageValue);
+  await assertLegacyBackendUploadPathExists(rawImageValue);
 
   return rawImageValue;
 }
@@ -326,7 +326,7 @@ async function handleImageFileChange(event) {
     uploadedImageName.value = `${file.name} - prepared ${resizedImage.width}x${resizedImage.height} (${formatBytes(
       resizedImage.byteLength,
     )})`;
-    uploadedImagePath.value = "Backend will save this image to /uploads/games";
+    uploadedImagePath.value = "Backend will upload this image to S3";
     errorMessage.value = "";
   } catch (error) {
     clearUploadedImage();
@@ -537,10 +537,10 @@ async function handleSubmit() {
               v-model="imageUrl"
               type="text"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-              placeholder="https://… or /images/game-cover.png"
+              placeholder="https://your-bucket.s3.region.amazonaws.com/images/game-cover.jpg"
             />
             <p class="text-xs text-slate-500">
-              Use a full image URL, or an existing backend /uploads path. For a local file, use Upload Image.
+              Use a full image URL, including an S3 public URL, or an existing backend /uploads path.
             </p>
           </div>
 
@@ -575,7 +575,7 @@ async function handleSubmit() {
               {{ uploadedImagePath }}
             </p>
             <p class="text-xs text-slate-500">
-              The backend saves the selected image into public/uploads/games when you create or update the game.
+              The backend receives the prepared image data and stores it in S3 when you create or update the game.
             </p>
           </div>
 
