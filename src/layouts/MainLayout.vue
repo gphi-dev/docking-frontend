@@ -10,7 +10,7 @@ const navigationLinks = [
   { to: { name: "dashboard" }, label: "Dashboard" },
   { to: { name: "games" }, label: "Games" },
   { to: { name: "admins" }, label: "Admin users" },
-  { to: { name: "user-api" }, label: "User Mobiles " },
+  { to: { name: "user-api" }, label: "User Mobiles" },
 ];
 
 function handleLogout() {
@@ -28,9 +28,9 @@ function isNavigationActive(routeName) {
 </script>
 
 <template>
-  <div class="flex min-h-full bg-[radial-gradient(circle_at_top_left,rgba(187,247,208,0.38),transparent_32%),linear-gradient(135deg,#f7fee7,#f0fdf4_42%,#ecfdf5)]">
+  <div class="flex min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(187,247,208,0.38),transparent_32%),linear-gradient(135deg,#f7fee7,#f0fdf4_42%,#ecfdf5)]">
     <aside
-      class="relative hidden w-72 shrink-0 overflow-hidden border-r border-emerald-900/30 bg-[radial-gradient(circle_at_top_left,rgba(132,204,22,0.24),transparent_35%),linear-gradient(180deg,#052e16,#064e3b_50%,#022c22)] text-emerald-50 shadow-[18px_0_60px_-38px_rgba(2,44,34,0.85)] md:flex md:flex-col"
+      class="sticky top-0 hidden h-screen w-72 shrink-0 overflow-hidden border-r border-emerald-900/30 bg-[radial-gradient(circle_at_top_left,rgba(132,204,22,0.24),transparent_35%),linear-gradient(180deg,#052e16,#064e3b_50%,#022c22)] text-emerald-50 shadow-[18px_0_60px_-38px_rgba(2,44,34,0.85)] md:flex md:flex-col"
     >
       <div class="pointer-events-none absolute -left-12 top-16 h-44 w-44 rounded-full bg-lime-300/10 blur-3xl" />
       <div class="pointer-events-none absolute bottom-24 right-0 h-32 w-32 rounded-full bg-emerald-300/10 blur-3xl" />
@@ -56,7 +56,7 @@ function isNavigationActive(routeName) {
         </div>
       </div>
 
-      <nav class="relative flex flex-1 flex-col gap-2 p-4">
+      <nav class="relative flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
         <p class="px-3 pt-2 text-[11px] font-bold uppercase tracking-[0.28em] text-emerald-100/40">Navigation</p>
         <RouterLink
           v-for="navigationItem in navigationLinks"
