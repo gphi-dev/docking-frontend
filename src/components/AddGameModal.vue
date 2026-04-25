@@ -42,15 +42,30 @@ const minImageDimension = 260;
 const initialImageQuality = 0.82;
 const minImageQuality = 0.42;
 const legacyUploadPathPattern = /^\/?uploads\//;
+const generatedSecretKeyBytes = 16;
 
 function isEditMode() {
   return props.mode === "edit";
 }
 
+function generateGameSecretKey() {
+  const bytes = new Uint8Array(generatedSecretKeyBytes);
+
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function resetForm() {
   name.value = "";
   gameid.value = "";
-  gamesecretkey.value = "";
+  gamesecretkey.value = generateGameSecretKey();
   description.value = "";
   imageUrl.value = "";
   imageSource.value = "upload";
@@ -77,6 +92,22 @@ function populateForm() {
   isResizingImage.value = false;
 }
 
+function extractGamesList(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload?.data && typeof payload.data === "object" && Array.isArray(payload.data.games)) {
+    return payload.data.games;
+  }
+
+  if (Array.isArray(payload?.games)) {
+    return payload.games;
+  }
+
+  return [];
+}
+
 function getNextGameId(games) {
   const latestGameId = games.reduce((latest, game) => {
     const numericGameId = Number(game?.game_id);
@@ -92,7 +123,7 @@ async function loadNextGameId() {
 
   try {
     const payload = await apiRequest("/api/games");
-    const games = Array.isArray(payload) ? payload : [];
+    const games = extractGamesList(payload);
     if (requestId === nextGameIdRequestId && !isEditMode()) {
       gameid.value = String(getNextGameId(games));
     }
@@ -365,6 +396,10 @@ async function handleSubmit() {
 
   isSubmitting.value = true;
   try {
+    if (!isEditMode() && !gamesecretkey.value.trim()) {
+      gamesecretkey.value = generateGameSecretKey();
+    }
+
     const payload = {
       name: name.value.trim(),
       game_id: Number(gameid.value),
@@ -456,9 +491,10 @@ async function handleSubmit() {
               type="number"
               min="1"
               step="1"
-              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-              :disabled="isLoadingNextGameId"
-              :placeholder="isLoadingNextGameId ? 'Loading next Game ID...' : 'Must be integer, e.g. 12345'"
+              readonly
+              class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
+              :aria-busy="isLoadingNextGameId"
+              :placeholder="isLoadingNextGameId ? 'Loading next Game ID...' : 'Auto-generated'"
             />
           </div>
           <div>
