@@ -35,9 +35,12 @@ const isSubmitting = ref(false);
 const isLoadingNextGameId = ref(false);
 const isResizingImage = ref(false);
 let nextGameIdRequestId = 0;
-let uploadedImagePreviewUrl = "";
 const maxImageUrlLength = 2048;
-const publicImageDirectory = "/uploads/games";
+const maxUploadedImageDataLength = 720000;
+const maxImageDimension = 900;
+const minImageDimension = 260;
+const initialImageQuality = 0.82;
+const minImageQuality = 0.42;
 
 function isEditMode() {
   return props.mode === "edit";
@@ -129,11 +132,6 @@ function getPreviewImageSrc() {
 }
 
 function clearUploadedImage() {
-  if (uploadedImagePreviewUrl) {
-    URL.revokeObjectURL(uploadedImagePreviewUrl);
-    uploadedImagePreviewUrl = "";
-  }
-
   uploadedImageData.value = "";
   uploadedImageName.value = "";
   uploadedImagePath.value = "";
@@ -150,6 +148,14 @@ function validateImageUrl(value) {
   }
 
   const trimmedValue = value.trim();
+  if (trimmedValue.startsWith("data:image/")) {
+    if (trimmedValue.length > maxUploadedImageDataLength) {
+      return "Uploaded image is too large. Please choose a smaller image.";
+    }
+
+    return "";
+  }
+
   if (trimmedValue.startsWith("data:") || trimmedValue.startsWith("blob:")) {
     return "Image URL must be a hosted URL or public asset path, not image data.";
   }
@@ -161,12 +167,82 @@ function validateImageUrl(value) {
   return "";
 }
 
-function sanitizeImageFileName(fileName) {
-  return encodeURIComponent(String(fileName || "game-image").trim() || "game-image");
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 KB";
+  }
+
+  return `${Math.ceil(bytes / 1024)} KB`;
 }
 
-function getPublicImagePath(fileName) {
-  return `${publicImageDirectory}/${sanitizeImageFileName(fileName)}`;
+function loadImageFromSource(source, cleanup = () => {}) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => {
+      cleanup();
+      resolve(image);
+    };
+    image.onerror = () => {
+      cleanup();
+      reject(new Error("Could not load the selected image"));
+    };
+    image.src = source;
+  });
+}
+
+function drawResizedImage(image, maxDimension) {
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const scale = Math.min(1, maxDimension / Math.max(width, height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Could not prepare image upload");
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return canvas;
+}
+
+async function resizeLoadedImage(image) {
+  let dimension = maxImageDimension;
+  let quality = initialImageQuality;
+
+  while (dimension >= minImageDimension) {
+    const canvas = drawResizedImage(image, dimension);
+
+    while (quality >= minImageQuality) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      if (dataUrl.length <= maxUploadedImageDataLength) {
+        return {
+          dataUrl,
+          width: canvas.width,
+          height: canvas.height,
+          byteLength: Math.ceil((dataUrl.length * 3) / 4),
+        };
+      }
+
+      quality -= 0.08;
+    }
+
+    dimension = Math.floor(dimension * 0.82);
+    quality = initialImageQuality;
+  }
+
+  throw new Error("Image is too large to upload. Please choose a smaller image.");
+}
+
+async function resizeImageFile(file) {
+  const objectUrl = URL.createObjectURL(file);
+  const image = await loadImageFromSource(objectUrl, () => URL.revokeObjectURL(objectUrl));
+  return resizeLoadedImage(image);
 }
 
 function normalizePublicImagePath(value) {
@@ -184,11 +260,11 @@ function normalizePublicImagePath(value) {
 
 async function getPreparedImageUrl() {
   if (imageSource.value === "upload") {
-    if (!uploadedImagePath.value) {
+    if (!uploadedImageData.value) {
       throw new Error("Please upload an image file");
     }
 
-    return uploadedImagePath.value;
+    return uploadedImageData.value;
   }
 
   const rawImageValue = normalizePublicImagePath(imageUrl.value);
@@ -218,11 +294,14 @@ async function handleImageFileChange(event) {
   errorMessage.value = "";
 
   try {
+    isResizingImage.value = true;
     clearUploadedImage();
-    uploadedImagePreviewUrl = URL.createObjectURL(file);
-    uploadedImageData.value = uploadedImagePreviewUrl;
-    uploadedImageName.value = file.name;
-    uploadedImagePath.value = getPublicImagePath(file.name);
+    const resizedImage = await resizeImageFile(file);
+    uploadedImageData.value = resizedImage.dataUrl;
+    uploadedImageName.value = `${file.name} - prepared ${resizedImage.width}x${resizedImage.height} (${formatBytes(
+      resizedImage.byteLength,
+    )})`;
+    uploadedImagePath.value = "Backend will save this image to /uploads/games";
     errorMessage.value = "";
   } catch (error) {
     clearUploadedImage();
@@ -471,7 +550,7 @@ async function handleSubmit() {
               {{ uploadedImagePath }}
             </p>
             <p class="text-xs text-slate-500">
-              Save the image file in the backend public/uploads/games folder. The API stores only this public path.
+              The backend saves the selected image into public/uploads/games when you create or update the game.
             </p>
           </div>
 
