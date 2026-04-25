@@ -41,6 +41,7 @@ const maxImageDimension = 900;
 const minImageDimension = 260;
 const initialImageQuality = 0.82;
 const minImageQuality = 0.42;
+const uploadPathPattern = /^\/?uploads\//;
 
 function isEditMode() {
   return props.mode === "edit";
@@ -52,7 +53,7 @@ function resetForm() {
   gamesecretkey.value = "";
   description.value = "";
   imageUrl.value = "";
-  imageSource.value = "url";
+  imageSource.value = "upload";
   clearUploadedImage();
   isGameSecretKeyVisible.value = false;
   errorMessage.value = "";
@@ -258,13 +259,35 @@ function normalizePublicImagePath(value) {
   return trimmedValue;
 }
 
+function isBackendUploadPath(value) {
+  return typeof value === "string" && uploadPathPattern.test(value.trim());
+}
+
+async function assertBackendUploadPathExists(value) {
+  if (!isBackendUploadPath(value)) {
+    return;
+  }
+
+  const normalizedPath = value.trim().startsWith("/") ? value.trim() : `/${value.trim()}`;
+  let response = null;
+
+  try {
+    response = await fetch(resolveAssetUrl(normalizedPath), {
+      method: "HEAD",
+      cache: "no-store",
+    });
+  } catch {
+    throw new Error(`Could not verify backend image path: ${normalizedPath}. Use Upload Image to save a local file.`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Image file not found on the backend: ${normalizedPath}. Use Upload Image to save a local file.`);
+  }
+}
+
 async function getPreparedImageUrl() {
   if (imageSource.value === "upload") {
-    if (!uploadedImageData.value) {
-      throw new Error("Please upload an image file");
-    }
-
-    return uploadedImageData.value;
+    return uploadedImageData.value || null;
   }
 
   const rawImageValue = normalizePublicImagePath(imageUrl.value);
@@ -272,6 +295,8 @@ async function getPreparedImageUrl() {
   if (typeof rawImageValue === "string" && rawImageValue.trim().startsWith("data:image/")) {
     throw new Error("Image URL must be a hosted URL or public asset path, not base64 image data.");
   }
+
+  await assertBackendUploadPathExists(rawImageValue);
 
   return rawImageValue;
 }
@@ -515,7 +540,7 @@ async function handleSubmit() {
               placeholder="https://… or /images/game-cover.png"
             />
             <p class="text-xs text-slate-500">
-              Use a full image URL or a local public asset path.
+              Use a full image URL, or an existing backend /uploads path. For a local file, use Upload Image.
             </p>
           </div>
 
