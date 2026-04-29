@@ -23,6 +23,7 @@ const emit = defineEmits(["close", "created", "updated"]);
 const name = ref("");
 const gameid = ref("");
 const gamesecretkey = ref("");
+const gameUrl = ref("");
 const description = ref("");
 const imageUrl = ref("");
 const imageSource = ref("url");
@@ -66,6 +67,7 @@ function resetForm() {
   name.value = "";
   gameid.value = "";
   gamesecretkey.value = generateGameSecretKey();
+  gameUrl.value = "";
   description.value = "";
   imageUrl.value = "";
   imageSource.value = "upload";
@@ -81,6 +83,7 @@ function populateForm() {
   name.value = props.game?.name ?? "";
   gameid.value = props.game?.game_id ?? "";
   gamesecretkey.value = props.game?.game_secret_key ?? "";
+  gameUrl.value = props.game?.game_url ?? "";
   description.value = props.game?.description ?? "";
   imageUrl.value = props.game?.image_url ?? "";
   imageSource.value = "url";
@@ -403,6 +406,7 @@ async function handleSubmit() {
     const payload = {
       name: name.value.trim(),
       game_id: Number(gameid.value),
+      game_url: gameUrl.value.trim() || null,
       description: description.value.trim() || null,
       image_url: resolvedImageUrl,
     };
@@ -519,6 +523,17 @@ async function handleSubmit() {
                 {{ isGameSecretKeyVisible ? "Hide" : "Show" }}
               </button>
             </div>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Game URL
+            </label>
+            <input
+              v-model="gameUrl"
+              type="url"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
+              placeholder="https://example.com/play/lunar-quest"
+            />
           </div>
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
