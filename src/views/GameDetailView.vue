@@ -24,6 +24,7 @@ const isLoading = ref(true);
 const isSubscribersLoading = ref(false);
 const isUsermobilesLoading = ref(false);
 const hasGameImageLoadFailed = ref(false);
+const hasGameBackgroundLoadFailed = ref(false);
 
 // props.gameId is treated as a slug by the router
 // const numericGameId = computed(() => Number(props.gameId));
@@ -153,6 +154,7 @@ async function loadInitial() {
   usermobilesLoadError.value = "";
   isLoading.value = true;
   hasGameImageLoadFailed.value = false;
+  hasGameBackgroundLoadFailed.value = false;
   game.value = null;
   subscribers.value = [];
   usermobiles.value = [];
@@ -225,6 +227,13 @@ watch(
 
     <template v-else-if="game">
       <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
+        <img
+          v-if="game.background_url && !hasGameBackgroundLoadFailed"
+          :src="resolveAssetUrl(game.background_url)"
+          alt=""
+          class="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20"
+          @error="hasGameBackgroundLoadFailed = true"
+        />
         <div class="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
         <div class="pointer-events-none absolute bottom-0 left-12 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
         <div class="relative grid gap-6 md:grid-cols-[minmax(0,220px)_1fr] md:items-start">

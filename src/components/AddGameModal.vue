@@ -26,6 +26,7 @@ const gamesecretkey = ref("");
 const gameUrl = ref("");
 const description = ref("");
 const imageUrl = ref("");
+const backgroundUrl = ref("");
 const imageSource = ref("url");
 const uploadedImageData = ref("");
 const uploadedImageName = ref("");
@@ -70,6 +71,7 @@ function resetForm() {
   gameUrl.value = "";
   description.value = "";
   imageUrl.value = "";
+  backgroundUrl.value = "";
   imageSource.value = "upload";
   clearUploadedImage();
   isGameSecretKeyVisible.value = false;
@@ -86,6 +88,7 @@ function populateForm() {
   gameUrl.value = props.game?.game_url ?? "";
   description.value = props.game?.description ?? "";
   imageUrl.value = props.game?.image_url ?? "";
+  backgroundUrl.value = props.game?.background_url ?? "";
   imageSource.value = "url";
   clearUploadedImage();
   isGameSecretKeyVisible.value = false;
@@ -166,6 +169,10 @@ function getPreviewImageSrc() {
   return resolveAssetUrl(imageUrl.value.trim());
 }
 
+function getPreviewBackgroundSrc() {
+  return resolveAssetUrl(backgroundUrl.value.trim());
+}
+
 function clearUploadedImage() {
   uploadedImageData.value = "";
   uploadedImageName.value = "";
@@ -177,7 +184,7 @@ function handleImageSourceChange(source) {
   errorMessage.value = "";
 }
 
-function validateImageUrl(value) {
+function validateImageUrl(value, fieldLabel = "Image URL") {
   if (!value) {
     return "";
   }
@@ -192,11 +199,11 @@ function validateImageUrl(value) {
   }
 
   if (trimmedValue.startsWith("data:") || trimmedValue.startsWith("blob:")) {
-    return "Image URL must be a hosted URL or backend asset path, not image data.";
+    return `${fieldLabel} must be a hosted URL or backend asset path, not image data.`;
   }
 
   if (trimmedValue.length > maxImageUrlLength) {
-    return "Image URL is too long. Please use a shorter hosted image URL or backend asset path.";
+    return `${fieldLabel} is too long. Please use a shorter hosted image URL or backend asset path.`;
   }
 
   return "";
@@ -335,6 +342,18 @@ async function getPreparedImageUrl() {
   return rawImageValue;
 }
 
+async function getPreparedBackgroundUrl() {
+  const rawBackgroundValue = normalizePublicImagePath(backgroundUrl.value);
+
+  if (typeof rawBackgroundValue === "string" && rawBackgroundValue.trim().startsWith("data:image/")) {
+    throw new Error("Background URL must be a hosted URL or backend asset path, not base64 image data.");
+  }
+
+  await assertLegacyBackendUploadPathExists(rawBackgroundValue);
+
+  return rawBackgroundValue;
+}
+
 async function handleImageFileChange(event) {
   const [file] = event.target.files || [];
 
@@ -384,12 +403,21 @@ async function handleSubmit() {
   }
 
   let resolvedImageUrl = null;
+  let resolvedBackgroundUrl = null;
   try {
     resolvedImageUrl = await getPreparedImageUrl();
 
     const imageUrlError = validateImageUrl(resolvedImageUrl);
     if (imageUrlError) {
       errorMessage.value = imageUrlError;
+      return;
+    }
+
+    resolvedBackgroundUrl = await getPreparedBackgroundUrl();
+
+    const backgroundUrlError = validateImageUrl(resolvedBackgroundUrl, "Background URL");
+    if (backgroundUrlError) {
+      errorMessage.value = backgroundUrlError;
       return;
     }
   } catch (error) {
@@ -409,6 +437,7 @@ async function handleSubmit() {
       game_url: gameUrl.value.trim() || null,
       description: description.value.trim() || null,
       image_url: resolvedImageUrl,
+      background_url: resolvedBackgroundUrl,
     };
 
     if (!isEditMode() || gamesecretkey.value.trim()) {
@@ -639,6 +668,31 @@ async function handleSubmit() {
                 :src="getPreviewImageSrc()"
                 alt="Selected game image preview"
                 class="max-h-48 w-full object-contain sm:max-h-56"
+              />
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Background URL or Asset Path
+            </label>
+            <input
+              v-model="backgroundUrl"
+              type="text"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
+              placeholder="https://your-bucket.s3.region.amazonaws.com/images/game-background.jpg"
+            />
+          </div>
+
+          <div v-if="getPreviewBackgroundSrc()" class="space-y-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Background Preview
+            </label>
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+              <img
+                :src="getPreviewBackgroundSrc()"
+                alt="Selected game background preview"
+                class="max-h-48 w-full object-cover sm:max-h-56"
               />
             </div>
           </div>

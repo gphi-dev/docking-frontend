@@ -263,7 +263,15 @@ onMounted(() => {
           class="group relative overflow-hidden rounded-[26px] border shadow-[0_20px_60px_-36px_rgba(20,83,45,0.55)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_-36px_rgba(20,83,45,0.65)]"
           :class="getGameCardTheme(index).shell"
         >
-          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-95" :class="getGameCardTheme(index).frame" />
+          <img
+            v-if="game.background_url && !hasImageLoadFailed(game.background_url)"
+            :src="resolveAssetUrl(game.background_url)"
+            alt=""
+            class="pointer-events-none absolute inset-x-0 top-0 h-28 w-full object-cover opacity-55"
+            loading="lazy"
+            @error="handleImageLoadError(game.background_url)"
+          />
+          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-90" :class="getGameCardTheme(index).frame" />
           <div class="pointer-events-none absolute -right-10 top-10 h-24 w-24 rounded-full blur-3xl" :class="getGameCardTheme(index).glow" />
 
           <button
@@ -374,7 +382,15 @@ onMounted(() => {
           class="group relative overflow-hidden rounded-[26px] border shadow-[0_20px_60px_-36px_rgba(20,83,45,0.55)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_-36px_rgba(20,83,45,0.65)]"
           :class="getGameCardTheme(index).shell"
         >
-          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-95" :class="getGameCardTheme(index).frame" />
+          <img
+            v-if="game.background_url && !hasImageLoadFailed(game.background_url)"
+            :src="resolveAssetUrl(game.background_url)"
+            alt=""
+            class="pointer-events-none absolute inset-x-0 top-0 h-28 w-full object-cover opacity-55"
+            loading="lazy"
+            @error="handleImageLoadError(game.background_url)"
+          />
+          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-90" :class="getGameCardTheme(index).frame" />
           <div class="pointer-events-none absolute -right-10 top-10 h-24 w-24 rounded-full blur-3xl" :class="getGameCardTheme(index).glow" />
 
           <button
