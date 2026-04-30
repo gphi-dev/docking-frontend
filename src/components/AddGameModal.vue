@@ -622,18 +622,7 @@ async function handleSubmit() {
                   </button>
                 </div>
               </div>
-              <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Game URL
-                </label>
-                <input
-                  v-model="gameUrl"
-                  type="url"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-                  placeholder="https://example.com/play/lunar-quest"
-                />
-              </div>
-              <div>
+               <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Is Landscape
                 </label>
@@ -646,7 +635,17 @@ async function handleSubmit() {
                 </select>
               </div>
             </div>
-
+             <div>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Game URL
+                </label>
+                <input
+                  v-model="gameUrl"
+                  type="url"
+                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
+                  placeholder="https://example.com/play/lunar-quest"
+                />
+              </div>
             <div>
               <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Description
