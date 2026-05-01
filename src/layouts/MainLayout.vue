@@ -9,13 +9,14 @@ const router = useRouter();
 
 const navigationLinks = [
   { to: { name: "dashboard" }, label: "Dashboard" },
-  { to: { name: "games" }, label: "Games" },
-  { to: { name: "admins" }, label: "Admin users", requiresSuperAdmin: true },
-  { to: { name: "user-api" }, label: "Subscribers" },
+  { to: { name: "games" }, label: "Games", requiredPermission: "games.view" },
+  { to: { name: "admins" }, label: "Admin users", requiredPermission: "admins.view" },
+  { to: { name: "rbac" }, label: "RBAC", requiredPermission: "rbac.manage" },
+  { to: { name: "user-api" }, label: "Subscribers", requiredPermission: "subscribers.view" },
 ];
 
 const visibleNavigationLinks = computed(() =>
-  navigationLinks.filter((navigationItem) => !navigationItem.requiresSuperAdmin || authStore.canManageAdmins),
+  navigationLinks.filter((navigationItem) => !navigationItem.requiredPermission || authStore.canAccess(navigationItem.requiredPermission)),
 );
 
 function handleLogout() {

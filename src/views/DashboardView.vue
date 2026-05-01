@@ -175,6 +175,11 @@ function openGameDetail(gameId) {
 }
 
 async function openEditGameModal(game) {
+  if (!authStore.canAccess("games.update")) {
+    loadError.value = "You do not have permission to update games.";
+    return;
+  }
+
   editingGameId.value = game.id;
   loadError.value = "";
 
@@ -190,7 +195,7 @@ async function openEditGameModal(game) {
 }
 
 async function handleDeleteGame(game) {
-  if (!authStore.canDeleteGames) {
+  if (!authStore.canAccess("games.delete")) {
     loadError.value = "Only Super Admin users can delete games.";
     return;
   }
@@ -250,6 +255,7 @@ onMounted(() => {
         </div>
         <div class="flex shrink-0 justify-end">
           <button
+            v-if="authStore.canAccess('games.create')"
             type="button"
             class="inline-flex items-center justify-center rounded-full border border-emerald-800/10 bg-emerald-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:bg-emerald-900"
             @click="isAddGameModalOpen = true"
@@ -386,6 +392,7 @@ onMounted(() => {
 
           <div class="flex gap-2 border-t border-emerald-100/80 bg-white/80 px-4 py-3 backdrop-blur">
             <button
+              v-if="authStore.canAccess('games.update')"
               type="button"
               class="flex-1 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
               :class="getGameCardTheme(index).button"
@@ -395,7 +402,7 @@ onMounted(() => {
               {{ editingGameId === game.id ? "Loading..." : "Edit" }}
             </button>
             <button
-              v-if="authStore.canDeleteGames"
+              v-if="authStore.canAccess('games.delete')"
               type="button"
               class="flex-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="deletingGameId === game.id"
@@ -501,6 +508,7 @@ onMounted(() => {
 
           <div class="flex gap-2 border-t border-emerald-100/80 bg-white/80 px-4 py-3 backdrop-blur">
             <button
+              v-if="authStore.canAccess('games.update')"
               type="button"
               class="flex-1 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
               :class="getGameCardTheme(index).button"
@@ -510,7 +518,7 @@ onMounted(() => {
               {{ editingGameId === game.id ? "Loading..." : "Edit" }}
             </button>
             <button
-              v-if="authStore.canDeleteGames"
+              v-if="authStore.canAccess('games.delete')"
               type="button"
               class="flex-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="deletingGameId === game.id"

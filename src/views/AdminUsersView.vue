@@ -53,7 +53,7 @@ async function loadAdmins() {
 
 // Added the function to open the Add Modal
 function openAddAdminModal() {
-  if (!authStore.canManageAdmins) {
+  if (!authStore.canAccess("admins.create")) {
     loadError.value = "Only Super Admin users can create admin users.";
     return;
   }
@@ -63,7 +63,7 @@ function openAddAdminModal() {
 
 // Added the function to open the Edit Modal so you have it ready
 function openEditAdminModal(admin) {
-  if (!authStore.canManageAdmins) {
+  if (!authStore.canAccess("admins.update")) {
     loadError.value = "Only Super Admin users can update admin users.";
     return;
   }
@@ -73,7 +73,7 @@ function openEditAdminModal(admin) {
 }
 
 async function handleDeleteAdmin(admin) {
-  if (!authStore.canManageAdmins) {
+  if (!authStore.canAccess("admins.delete")) {
     loadError.value = "Only Super Admin users can delete admin users.";
     return;
   }
@@ -138,6 +138,7 @@ onMounted(() => {
         </div>
         <div class="flex shrink-0 justify-end">
           <button
+            v-if="authStore.canAccess('admins.create')"
             type="button"
             class="inline-flex items-center justify-center rounded-full border border-emerald-800/10 bg-emerald-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:bg-emerald-900"
             @click="openAddAdminModal"
@@ -202,7 +203,14 @@ onMounted(() => {
               </td>
               <td class="px-4 py-3 text-right">
                 <div class="flex justify-end gap-2">
+                  <span
+                    v-if="!authStore.canAccess('admins.update') && !authStore.canAccess('admins.delete')"
+                    class="text-sm text-emerald-900/40"
+                  >
+                    —
+                  </span>
                   <button
+                    v-if="authStore.canAccess('admins.update')"
                     type="button"
                     class="rounded-full border border-emerald-200 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50 hover:text-emerald-700"
                     @click="openEditAdminModal(admin)"
@@ -210,6 +218,7 @@ onMounted(() => {
                     Edit
                   </button>
                   <button
+                    v-if="authStore.canAccess('admins.delete')"
                     type="button"
                     class="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="deletingAdminId === admin.id"
