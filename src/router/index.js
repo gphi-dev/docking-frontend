@@ -42,6 +42,7 @@ export const router = createRouter({
           path: "admins",
           name: "admins",
           component: AdminUsersView,
+          meta: { requiresSuperAdmin: true },
         },
         {
           path: "user-api",
@@ -63,6 +64,9 @@ router.beforeEach((to) => {
     return { name: "login", query: { redirect: to.fullPath } };
   }
   if (to.name === "login" && authStore.isAuthenticated) {
+    return { name: "dashboard" };
+  }
+  if (to.meta.requiresSuperAdmin && !authStore.canManageAdmins) {
     return { name: "dashboard" };
   }
   return true;

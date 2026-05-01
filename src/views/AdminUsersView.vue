@@ -2,7 +2,9 @@
 import { onMounted, ref } from "vue";
 import { apiRequest } from "../api/http";
 import AddAdminModal from "../components/AddAdminModal.vue";
+import { useAuthStore } from "../stores/auth";
 
+const authStore = useAuthStore();
 const admins = ref([]);
 const loadError = ref("");
 const isLoading = ref(true);
@@ -11,6 +13,7 @@ const isLoading = ref(true);
 const isAddAdminModalOpen = ref(false);
 const isEditAdminModalOpen = ref(false);
 const selectedAdmin = ref(null);
+const deletingAdminId = ref(null);
 
 function formatDateTime(isoString) {
   if (!isoString) {
@@ -24,6 +27,15 @@ function formatDateTime(isoString) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function formatRole(role) {
+  const normalizedRole = String(role || "").toLowerCase().replace(/[\s_-]+/g, "");
+  if (normalizedRole === "superadmin") {
+    return "Super Admin";
+  }
+
+  return "Admin";
 }
 
 async function loadAdmins() {
@@ -41,13 +53,61 @@ async function loadAdmins() {
 
 // Added the function to open the Add Modal
 function openAddAdminModal() {
+  if (!authStore.canManageAdmins) {
+    loadError.value = "Only Super Admin users can create admin users.";
+    return;
+  }
+
   isAddAdminModalOpen.value = true;
 }
 
 // Added the function to open the Edit Modal so you have it ready
 function openEditAdminModal(admin) {
+  if (!authStore.canManageAdmins) {
+    loadError.value = "Only Super Admin users can update admin users.";
+    return;
+  }
+
   selectedAdmin.value = admin;
   isEditAdminModalOpen.value = true;
+}
+
+async function handleDeleteAdmin(admin) {
+  if (!authStore.canManageAdmins) {
+    loadError.value = "Only Super Admin users can delete admin users.";
+    return;
+  }
+
+  const shouldDelete = window.confirm(`Delete admin "${admin.username}"?`);
+  if (!shouldDelete) {
+    return;
+  }
+
+  const password = window.prompt(`Enter your password to delete admin "${admin.username}":`);
+  if (password === null) {
+    return;
+  }
+
+  const trimmedPassword = password.trim();
+  if (!trimmedPassword) {
+    loadError.value = "Password is required to delete an admin user.";
+    return;
+  }
+
+  deletingAdminId.value = admin.id;
+  loadError.value = "";
+
+  try {
+    await apiRequest(`/api/admins/${admin.id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ password: trimmedPassword }),
+    });
+    admins.value = admins.value.filter((item) => item.id !== admin.id);
+  } catch (error) {
+    loadError.value = error?.message || "Could not delete admin user";
+  } finally {
+    deletingAdminId.value = null;
+  }
 }
 
 function handleAdminCreated() {
@@ -109,32 +169,55 @@ onMounted(() => {
           <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.24em] text-emerald-800/70">
             <tr>
               <th class="px-4 py-3">Username</th>
+              <th class="px-4 py-3">Role</th>
               <th class="px-4 py-3">Created</th>
               <th class="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-emerald-100/80">
             <tr v-if="isLoading">
-              <td colspan="3" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
+              <td colspan="4" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
             </tr>
             <tr v-else-if="admins.length === 0">
-              <td colspan="3" class="px-4 py-10 text-center text-emerald-900/55">No admin users found.</td>
+              <td colspan="4" class="px-4 py-10 text-center text-emerald-900/55">No admin users found.</td>
             </tr>
             <tr v-for="admin in admins" :key="admin.id" class="hover:bg-emerald-50/70">
               <td class="px-4 py-3 font-semibold text-emerald-950">
                 {{ admin.username }}
               </td>
+              <td class="whitespace-nowrap px-4 py-3">
+                <span
+                  class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset"
+                  :class="
+                    formatRole(admin.role) === 'Super Admin'
+                      ? 'bg-emerald-950 text-lime-100 ring-emerald-900/20'
+                      : 'bg-emerald-400/15 text-emerald-900 ring-emerald-500/20'
+                  "
+                >
+                  {{ formatRole(admin.role) }}
+                </span>
+              </td>
               <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
                 {{ formatDateTime(admin.created_at) }}
               </td>
               <td class="px-4 py-3 text-right">
-                <button
-                  type="button"
-                  class="rounded-full border border-emerald-200 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50 hover:text-emerald-700"
-                  @click="openEditAdminModal(admin)"
-                >
-                  Edit
-                </button>
+                <div class="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    class="rounded-full border border-emerald-200 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-50 hover:text-emerald-700"
+                    @click="openEditAdminModal(admin)"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="deletingAdminId === admin.id"
+                    @click="handleDeleteAdmin(admin)"
+                  >
+                    {{ deletingAdminId === admin.id ? "Deleting…" : "Delete" }}
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>

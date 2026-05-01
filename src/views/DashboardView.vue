@@ -4,8 +4,10 @@ import { RouterLink, useRouter } from "vue-router";
 import { apiRequest, resolveAssetUrl } from "../api/http";
 import { extractUsermobileRecords } from "../api/response";
 import AddGameModal from "../components/AddGameModal.vue";
+import { useAuthStore } from "../stores/auth";
 
 const router = useRouter();
+const authStore = useAuthStore();
 const games = ref([]);
 const featuredGames = ref([]);
 const newGames = ref([]);
@@ -188,6 +190,11 @@ async function openEditGameModal(game) {
 }
 
 async function handleDeleteGame(game) {
+  if (!authStore.canDeleteGames) {
+    loadError.value = "Only Super Admin users can delete games.";
+    return;
+  }
+
   const shouldDelete = window.confirm(`Delete "${game.name}"?`);
   if (!shouldDelete) {
     return;
@@ -388,6 +395,7 @@ onMounted(() => {
               {{ editingGameId === game.id ? "Loading..." : "Edit" }}
             </button>
             <button
+              v-if="authStore.canDeleteGames"
               type="button"
               class="flex-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="deletingGameId === game.id"
@@ -502,6 +510,7 @@ onMounted(() => {
               {{ editingGameId === game.id ? "Loading..." : "Edit" }}
             </button>
             <button
+              v-if="authStore.canDeleteGames"
               type="button"
               class="flex-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="deletingGameId === game.id"

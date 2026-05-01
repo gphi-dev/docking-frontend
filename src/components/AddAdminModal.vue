@@ -191,6 +191,13 @@ async function handleSubmit() {
               <option value="admin">Admin</option>
               <option value="superadmin">Super Admin</option>
             </select>
+            <p class="mt-2 text-xs leading-5 text-slate-500">
+              {{
+                role === "superadmin"
+                  ? "Super Admin can create, update, and delete games and admin users."
+                  : "Admin can create and update games only, with no access to admin users."
+              }}
+            </p>
           </div>
 
           <p v-if="errorMessage" class="text-sm text-rose-600">

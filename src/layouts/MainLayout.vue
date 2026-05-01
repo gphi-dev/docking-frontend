@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 
@@ -9,9 +10,13 @@ const router = useRouter();
 const navigationLinks = [
   { to: { name: "dashboard" }, label: "Dashboard" },
   { to: { name: "games" }, label: "Games" },
-  { to: { name: "admins" }, label: "Admin users" },
+  { to: { name: "admins" }, label: "Admin users", requiresSuperAdmin: true },
   { to: { name: "user-api" }, label: "Subscribers" },
 ];
+
+const visibleNavigationLinks = computed(() =>
+  navigationLinks.filter((navigationItem) => !navigationItem.requiresSuperAdmin || authStore.canManageAdmins),
+);
 
 function handleLogout() {
   authStore.logout();
@@ -61,7 +66,7 @@ function isNavigationActive(routeName) {
       <nav class="relative flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
         <p class="px-3 pt-2 text-[11px] font-bold uppercase tracking-[0.28em] text-emerald-100/40">Navigation</p>
         <RouterLink
-          v-for="navigationItem in navigationLinks"
+          v-for="navigationItem in visibleNavigationLinks"
           :key="navigationItem.label"
           :to="navigationItem.to"
           class="group rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:border-white/10 hover:bg-white/10 hover:text-white"
@@ -119,7 +124,7 @@ function isNavigationActive(routeName) {
 
         <nav class="flex flex-1 items-center justify-center gap-1 overflow-x-auto md:hidden">
           <RouterLink
-            v-for="navigationItem in navigationLinks"
+            v-for="navigationItem in visibleNavigationLinks"
             :key="`m-${navigationItem.label}`"
             :to="navigationItem.to"
             class="whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:bg-emerald-50"
