@@ -102,7 +102,7 @@ function isNavigationActive(routeName) {
 
             <div class="min-w-0">
               <p class="truncate text-sm font-black uppercase tracking-[0.18em] text-emerald-950">
-                Game Docking - Admin System
+                Game Docking - Onboarding System
               </p>
               <p class="truncate text-xs font-semibold text-emerald-900/55">
                 Professional dashboard console
