@@ -173,9 +173,7 @@ function resetAllRoles() {
               <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
                 <tr>
                   <th class="w-[8.5rem] px-4 py-3">Access</th>
-                  <th class="w-[13rem] px-4 py-3">Action</th>
-                  <th class="w-[7rem] px-4 py-3">Method</th>
-                  <th class="w-[15rem] px-4 py-3">Endpoint</th>
+                  <th class="w-[18rem] px-4 py-3">Action</th>
                   <th class="px-4 py-3">Description</th>
                 </tr>
               </thead>
@@ -185,7 +183,7 @@ function resetAllRoles() {
                 class="divide-y divide-emerald-100/80"
               >
                 <tr class="bg-emerald-50/70">
-                  <td colspan="5" class="px-4 py-3 text-xs font-bold uppercase tracking-[0.22em] text-emerald-800/70">
+                  <td colspan="3" class="px-4 py-3 text-xs font-bold uppercase tracking-[0.22em] text-emerald-800/70">
                     {{ group.group }}
                   </td>
                 </tr>
@@ -210,14 +208,6 @@ function resetAllRoles() {
                   </td>
                   <td class="break-words px-4 py-3 font-semibold text-emerald-950">
                     {{ permission.action }}
-                  </td>
-                  <td class="whitespace-nowrap px-4 py-3">
-                    <span class="inline-flex rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
-                      {{ permission.method }}
-                    </span>
-                  </td>
-                  <td class="break-all px-4 py-3 font-mono text-xs text-slate-700">
-                    {{ permission.endpoint }}
                   </td>
                   <td class="break-words px-4 py-3 text-emerald-900/60">
                     {{ permission.description }}
