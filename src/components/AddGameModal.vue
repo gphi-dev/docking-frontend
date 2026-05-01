@@ -99,7 +99,7 @@ function populateForm() {
   gamesecretkey.value = props.game?.game_secret_key ?? "";
   gameUrl.value = props.game?.game_url ?? "";
   description.value = props.game?.description ?? "";
-  isLandscape.value = getBooleanSelectValue(props.game?.is_landscpae ?? props.game?.is_landscape);
+  isLandscape.value = getBooleanSelectValue(props.game?.is_landscape);
   imageUrl.value = props.game?.image_url ?? "";
   backgroundUrl.value = props.game?.background_url ?? "";
   imageSource.value = "url";
@@ -494,7 +494,7 @@ async function handleSubmit() {
       game_id: Number(gameid.value),
       game_url: gameUrl.value.trim() || null,
       description: description.value.trim() || null,
-      is_landscpae: isLandscape.value === "true",
+      is_landscape: isLandscape.value === "true",
       image_url: resolvedImageUrl,
       background_url: resolvedBackgroundUrl,
     };
@@ -622,9 +622,9 @@ async function handleSubmit() {
                   </button>
                 </div>
               </div>
-               <div>
+              <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Is Landscape
+                  Landscape View ( True / False )
                 </label>
                 <select
                   v-model="isLandscape"
@@ -635,17 +635,19 @@ async function handleSubmit() {
                 </select>
               </div>
             </div>
-             <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Game URL
-                </label>
-                <input
-                  v-model="gameUrl"
-                  type="url"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
-                  placeholder="https://example.com/play/lunar-quest"
-                />
-              </div>
+
+            <div>
+              <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Game URL
+              </label>
+              <input
+                v-model="gameUrl"
+                type="url"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
+                placeholder="https://example.com/play/lunar-quest"
+              />
+            </div>
+
             <div>
               <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Description
