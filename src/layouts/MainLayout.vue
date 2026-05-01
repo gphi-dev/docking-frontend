@@ -49,10 +49,10 @@ function isNavigationActive(routeName) {
               class="h-full w-full rounded-xl object-contain"
             />
           </div>
-          <!-- <div class="min-w-0">
-            <p class="truncate text-base font-bold tracking-tight text-white">Game Docking</p>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/60">Admin System</p>
-          </div> -->
+          <div class="min-w-0">
+            <p class="truncate text-base font-bold tracking-tight text-white">Admin</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/60">Dashboard</p>
+          </div>
         </div>
         <div class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
           <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-lime-100/60">Signed in as</p>
@@ -118,7 +118,7 @@ function isNavigationActive(routeName) {
           </div>
           <div class="min-w-0 md:hidden">
             <p class="truncate text-sm font-bold text-emerald-950">Game Docking</p>
-            <p class="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800/50">Admin System</p>
+            <p class="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800/50">Onboarding System</p>
           </div>
         </div>
 
