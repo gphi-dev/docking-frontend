@@ -158,6 +158,8 @@ function getTopScorersPerGame(records) {
   return Array.from(topScorerByGameId.values()).sort(sortByGameId);
 }
 
+const isTopScorerMode = computed(() => subscriberViewMode.value === "top_scorer");
+
 const filteredUsersmobile = computed(() => {
   const matchingUsers = usersmobile.value.filter((user) => {
     const matchesGame = selectedGameId.value
@@ -171,7 +173,7 @@ const filteredUsersmobile = computed(() => {
   });
 
   const sortedUsers = [...matchingUsers].sort(sortByCreatedDateDesc);
-  if (subscriberViewMode.value === "top_scorer") {
+  if (isTopScorerMode.value) {
     return getTopScorersPerGame(sortedUsers);
   }
 
@@ -179,11 +181,11 @@ const filteredUsersmobile = computed(() => {
 });
 
 const totalUsers = computed(() => filteredUsersmobile.value.length);
-const totalPages = computed(() => Math.max(1, Math.ceil(totalUsers.value / PAGE_SIZE)));
-const tableColumnCount = computed(() => (subscriberViewMode.value === "top_scorer" ? 5 : 4));
+const totalPages = computed(() => (isTopScorerMode.value ? 1 : Math.max(1, Math.ceil(totalUsers.value / PAGE_SIZE))));
+const tableColumnCount = computed(() => (isTopScorerMode.value ? 5 : 4));
 
 const displayedUsersmobile = computed(() => {
-  if (isServerPaginated.value) {
+  if (isServerPaginated.value || isTopScorerMode.value) {
     return filteredUsersmobile.value;
   }
 
@@ -194,6 +196,9 @@ const displayedUsersmobile = computed(() => {
 const usersRangeLabel = computed(() => {
   if (totalUsers.value === 0) {
     return "0 users";
+  }
+  if (isTopScorerMode.value) {
+    return `Showing all ${totalUsers.value}`;
   }
   const startIndex = (currentPage.value - 1) * PAGE_SIZE + 1;
   const endIndex = Math.min(currentPage.value * PAGE_SIZE, totalUsers.value);
@@ -328,7 +333,7 @@ onMounted(() => {
               <th class="px-4 py-3">Phone Number</th>
               <th class="px-4 py-3">Game ID</th>
               <th class="px-4 py-3">Game Name</th>
-              <th v-if="subscriberViewMode === 'top_scorer'" class="px-4 py-3">Points</th>
+              <th v-if="isTopScorerMode" class="px-4 py-3">Points</th>
               <th class="px-4 py-3">Subscribed Date</th>
             </tr>
           </thead>
@@ -351,7 +356,7 @@ onMounted(() => {
               <td class="px-4 py-3 font-semibold text-emerald-950">
                 {{ getGameName(user) }}
               </td>
-              <td v-if="subscriberViewMode === 'top_scorer'" class="whitespace-nowrap px-4 py-3 font-semibold text-emerald-950">
+              <td v-if="isTopScorerMode" class="whitespace-nowrap px-4 py-3 font-semibold text-emerald-950">
                 {{ formatUserScore(user) }}
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
@@ -364,12 +369,12 @@ onMounted(() => {
     </div>
 
     <!-- Pagination -->
-    <div v-if="totalUsers > 0 && totalPages > 1" class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+    <div v-if="totalUsers > 0 && (isTopScorerMode || totalPages > 1)" class="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
       <p class="text-xs text-slate-500">
         {{ usersRangeLabel }}
       </p>
 
-      <div class="flex justify-end gap-2">
+      <div v-if="totalPages > 1" class="flex justify-end gap-2">
         <button
           type="button"
           class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
