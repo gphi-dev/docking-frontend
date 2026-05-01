@@ -91,7 +91,7 @@ function resetAllRoles() {
       </div>
     </section>
 
-    <section class="grid gap-5 xl:grid-cols-[18rem_1fr]">
+    <section class="grid gap-5 xl:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)]">
       <aside class="space-y-4">
         <div class="overflow-hidden rounded-[24px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
           <div class="border-b border-emerald-100/80 px-4 py-3">
@@ -131,16 +131,16 @@ function resetAllRoles() {
         </div>
       </aside>
 
-      <div class="space-y-5">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+      <div class="min-w-0 space-y-5">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div class="min-w-0">
             <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Permissions</p>
             <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Actions and endpoints</h2>
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex max-w-full flex-wrap gap-2 lg:justify-end">
             <button
               type="button"
-              class="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50"
+              class="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-55"
               :disabled="isSelectedRoleLocked"
               @click="resetSelectedRole"
             >
@@ -167,15 +167,15 @@ function resetAllRoles() {
           {{ statusMessage }}
         </p>
 
-        <div class="overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
+        <div class="min-w-0 overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
-              <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800/70">
+            <table class="w-full table-fixed divide-y divide-slate-200 text-sm">
+              <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
                 <tr>
-                  <th class="px-4 py-3">Access</th>
-                  <th class="px-4 py-3">Action</th>
-                  <th class="px-4 py-3">Method</th>
-                  <th class="px-4 py-3">Endpoint</th>
+                  <th class="w-[8.5rem] px-4 py-3">Access</th>
+                  <th class="w-[13rem] px-4 py-3">Action</th>
+                  <th class="w-[7rem] px-4 py-3">Method</th>
+                  <th class="w-[15rem] px-4 py-3">Endpoint</th>
                   <th class="px-4 py-3">Description</th>
                 </tr>
               </thead>
@@ -195,7 +195,7 @@ function resetAllRoles() {
                   class="transition hover:bg-emerald-50/70"
                 >
                   <td class="px-4 py-3">
-                    <label class="inline-flex cursor-pointer items-center gap-3">
+                    <label class="flex cursor-pointer flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
                       <input
                         type="checkbox"
                         class="h-4 w-4 rounded border-emerald-300 text-emerald-700 focus:ring-emerald-500"
@@ -208,7 +208,7 @@ function resetAllRoles() {
                       </span>
                     </label>
                   </td>
-                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-emerald-950">
+                  <td class="break-words px-4 py-3 font-semibold text-emerald-950">
                     {{ permission.action }}
                   </td>
                   <td class="whitespace-nowrap px-4 py-3">
@@ -216,10 +216,10 @@ function resetAllRoles() {
                       {{ permission.method }}
                     </span>
                   </td>
-                  <td class="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-700">
+                  <td class="break-all px-4 py-3 font-mono text-xs text-slate-700">
                     {{ permission.endpoint }}
                   </td>
-                  <td class="min-w-[18rem] px-4 py-3 text-emerald-900/60">
+                  <td class="break-words px-4 py-3 text-emerald-900/60">
                     {{ permission.description }}
                   </td>
                 </tr>
