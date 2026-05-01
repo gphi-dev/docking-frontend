@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import { apiRequest, resolveAssetUrl } from "../api/http";
 import { extractUsermobileRecords } from "../api/response";
@@ -10,6 +10,7 @@ const games = ref([]);
 const featuredGames = ref([]);
 const newGames = ref([]);
 const recentSubscribers = ref([]);
+const recentSubscribersDisplay = ref("10");
 const loadError = ref("");
 const isLoading = ref(true);
 const isAddGameModalOpen = ref(false);
@@ -39,6 +40,50 @@ function formatDateTime(isoString) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function isVerifiedSubscriber(subscriber) {
+  const value = subscriber?.is_verified;
+  return value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";
+}
+
+const gameNameById = computed(() => {
+  const entries = new Map();
+
+  for (const game of games.value) {
+    if (game?.id !== undefined && game?.id !== null) {
+      entries.set(String(game.id), game.name || "—");
+    }
+    if (game?.game_id !== undefined && game?.game_id !== null) {
+      entries.set(String(game.game_id), game.name || "—");
+    }
+  }
+
+  return entries;
+});
+
+const displayedRecentSubscribers = computed(() => {
+  if (recentSubscribersDisplay.value === "all") {
+    return recentSubscribers.value;
+  }
+
+  return recentSubscribers.value.slice(0, Number(recentSubscribersDisplay.value));
+});
+
+const recentSubscribersLabel = computed(() => {
+  if (recentSubscribersDisplay.value === "all") {
+    return `Showing all ${recentSubscribers.value.length}`;
+  }
+
+  return `Latest ${recentSubscribersDisplay.value}`;
+});
+
+function getSubscriberGameName(subscriber) {
+  if (subscriber?.game?.name) {
+    return subscriber.game.name;
+  }
+
+  return subscriber?.game_name || gameNameById.value.get(String(subscriber?.game_id ?? "")) || "—";
 }
 
 function getGameCardTheme(index) {
@@ -85,12 +130,12 @@ async function loadDashboardData() {
     newGames.value = Array.isArray(collections.new_games) ? collections.new_games : [];
     recentSubscribers.value = usermobileRecords.length > 0
       ? [...usermobileRecords]
+          .filter(isVerifiedSubscriber)
           .sort((left, right) => {
             const leftTimestamp = new Date(left?.created_at || 0).getTime();
             const rightTimestamp = new Date(right?.created_at || 0).getTime();
             return rightTimestamp - leftTimestamp;
           })
-          .slice(0, 5)
       : [];
   } catch (error) {
     loadError.value = error?.message || "Failed to load dashboard";
@@ -470,12 +515,23 @@ onMounted(() => {
     </section>
 
     <section class="space-y-5">
-      <div class="flex items-end justify-between gap-3">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           
           <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Recent Subscribers</h2>
         </div>
-        <p class="text-sm text-emerald-900/55">Latest 5</p>
+        <div class="flex flex-wrap items-center gap-3">
+          <p class="text-sm text-emerald-900/55">{{ recentSubscribersLabel }}</p>
+          <select
+            v-model="recentSubscribersDisplay"
+            class="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
+            aria-label="Recent subscribers display"
+          >
+            <option value="5">Show 5</option>
+            <option value="10">Show 10</option>
+            <option value="all">Show all</option>
+          </select>
+        </div>
       </div>
       <div class="overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
         <div class="overflow-x-auto">
@@ -484,19 +540,20 @@ onMounted(() => {
               <tr>
                 <th class="px-4 py-3">Phone Number</th>
                 <th class="px-4 py-3">Game ID</th>
+                <th class="px-4 py-3">Game Name</th>
                 <th class="px-4 py-3">Verified</th>
                 <th class="px-4 py-3">Created</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-emerald-100/80">
               <tr v-if="isLoading">
-                <td colspan="4" class="px-4 py-10 text-center text-emerald-900/55">Loading recent subscribers…</td>
+                <td colspan="5" class="px-4 py-10 text-center text-emerald-900/55">Loading recent subscribers…</td>
               </tr>
-              <tr v-else-if="recentSubscribers.length === 0">
-                <td colspan="4" class="px-4 py-10 text-center text-emerald-900/55">No recent subscribers found.</td>
+              <tr v-else-if="displayedRecentSubscribers.length === 0">
+                <td colspan="5" class="px-4 py-10 text-center text-emerald-900/55">No recent subscribers found.</td>
               </tr>
               <tr
-                v-for="subscriber in recentSubscribers"
+                v-for="subscriber in displayedRecentSubscribers"
                 :key="subscriber.id"
                 class="transition hover:bg-emerald-50/70"
               >
@@ -510,8 +567,11 @@ onMounted(() => {
                     {{ subscriber.game_id || "—" }}
                   </span>
                 </td>
+                <td class="px-4 py-3 font-semibold text-emerald-950">
+                  {{ getSubscriberGameName(subscriber) }}
+                </td>
                 <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
-                  {{ subscriber.is_verified ? "Yes" : "No" }}
+                  {{ isVerifiedSubscriber(subscriber) ? "Yes" : "No" }}
                 </td>
                 <td class="whitespace-nowrap px-4 py-3 text-emerald-900/55">
                   {{ formatDateTime(subscriber.created_at) }}

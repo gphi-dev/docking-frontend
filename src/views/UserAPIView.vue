@@ -4,6 +4,7 @@ import { apiRequest } from "../api/http";
 import { extractUsermobileRecords } from "../api/response";
 
 const PAGE_SIZE = 10;
+const SCORE_FIELDS = ["score", "top_score", "high_score", "highest_score", "best_score", "points", "total_score"];
 
 const games = ref([]);
 const usersmobile = ref([]);
@@ -11,8 +12,8 @@ const loadError = ref("");
 const isLoadingMobile = ref(true);
 const selectedGameId = ref("");
 const currentPage = ref(1);
-const totalPages = ref(1);
-const totalUsers = ref(0);
+const verificationFilter = ref("verified");
+const subscriberViewMode = ref("all");
 const isServerPaginated = ref(false);
 
 function extractGamesList(payload) {
@@ -39,14 +40,70 @@ function extractGamesList(payload) {
   return [];
 }
 
-const displayedUsersmobile = computed(() => {
-  if (isServerPaginated.value) {
-    return usersmobile.value;
+function formatDateTime(isoString) {
+  if (!isoString) {
+    return "—";
+  }
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return isoString;
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function getCreatedTimestamp(user) {
+  const timestamp = new Date(user?.created_at || 0).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function isVerifiedUser(user) {
+  const value = user?.is_verified;
+  return value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";
+}
+
+function getUserScore(user) {
+  for (const field of SCORE_FIELDS) {
+    const score = Number(user?.[field]);
+    if (Number.isFinite(score)) {
+      return score;
+    }
   }
 
-  const startIndex = (currentPage.value - 1) * PAGE_SIZE;
-  return usersmobile.value.slice(startIndex, startIndex + PAGE_SIZE);
-});
+  return null;
+}
+
+function formatUserScore(user) {
+  const score = getUserScore(user);
+  if (score === null) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+  }).format(score);
+}
+
+function shouldReplaceTopScorer(currentUser, nextUser) {
+  const currentScore = getUserScore(currentUser);
+  const nextScore = getUserScore(nextUser);
+
+  if (currentScore !== null && nextScore !== null && currentScore !== nextScore) {
+    return nextScore > currentScore;
+  }
+
+  if (currentScore === null && nextScore !== null) {
+    return true;
+  }
+
+  if (currentScore !== null && nextScore === null) {
+    return false;
+  }
+
+  return getCreatedTimestamp(nextUser) > getCreatedTimestamp(currentUser);
+}
 
 const gameNameById = computed(() => {
   const entries = new Map();
@@ -63,6 +120,77 @@ const gameNameById = computed(() => {
   return entries;
 });
 
+function sortByCreatedDateDesc(left, right) {
+  return getCreatedTimestamp(right) - getCreatedTimestamp(left);
+}
+
+function sortByGameId(left, right) {
+  const leftGameId = left?.game_id;
+  const rightGameId = right?.game_id;
+  const leftNumber = Number(leftGameId);
+  const rightNumber = Number(rightGameId);
+
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber !== rightNumber) {
+    return leftNumber - rightNumber;
+  }
+
+  return String(leftGameId ?? "").localeCompare(String(rightGameId ?? ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function getTopScorersPerGame(records) {
+  const topScorerByGameId = new Map();
+
+  for (const user of records) {
+    const gameId = String(user?.game_id ?? "");
+    if (!gameId) {
+      continue;
+    }
+
+    const currentTopScorer = topScorerByGameId.get(gameId);
+    if (!currentTopScorer || shouldReplaceTopScorer(currentTopScorer, user)) {
+      topScorerByGameId.set(gameId, user);
+    }
+  }
+
+  return Array.from(topScorerByGameId.values()).sort(sortByGameId);
+}
+
+const filteredUsersmobile = computed(() => {
+  const matchingUsers = usersmobile.value.filter((user) => {
+    const matchesGame = selectedGameId.value
+      ? String(user?.game_id ?? "") === String(selectedGameId.value)
+      : true;
+    const matchesVerification = verificationFilter.value === "verified"
+      ? isVerifiedUser(user)
+      : !isVerifiedUser(user);
+
+    return matchesGame && matchesVerification;
+  });
+
+  const sortedUsers = [...matchingUsers].sort(sortByCreatedDateDesc);
+  if (subscriberViewMode.value === "top_scorer") {
+    return getTopScorersPerGame(sortedUsers);
+  }
+
+  return sortedUsers;
+});
+
+const totalUsers = computed(() => filteredUsersmobile.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalUsers.value / PAGE_SIZE)));
+const tableColumnCount = computed(() => (subscriberViewMode.value === "top_scorer" ? 5 : 4));
+
+const displayedUsersmobile = computed(() => {
+  if (isServerPaginated.value) {
+    return filteredUsersmobile.value;
+  }
+
+  const startIndex = (currentPage.value - 1) * PAGE_SIZE;
+  return filteredUsersmobile.value.slice(startIndex, startIndex + PAGE_SIZE);
+});
+
 const usersRangeLabel = computed(() => {
   if (totalUsers.value === 0) {
     return "0 users";
@@ -70,6 +198,15 @@ const usersRangeLabel = computed(() => {
   const startIndex = (currentPage.value - 1) * PAGE_SIZE + 1;
   const endIndex = Math.min(currentPage.value * PAGE_SIZE, totalUsers.value);
   return `Showing ${startIndex}–${endIndex} of ${totalUsers.value}`;
+});
+
+const emptyUsersMessage = computed(() => {
+  const verificationLabel = verificationFilter.value === "verified" ? "verified" : "not verified";
+  if (subscriberViewMode.value === "top_scorer") {
+    return `No ${verificationLabel} top scorer records found.`;
+  }
+
+  return `No ${verificationLabel} mobile users found.`;
 });
 
 async function loadGames() {
@@ -89,17 +226,9 @@ async function loadUsersmobile() {
     const records = extractUsermobileRecords(payload);
 
     isServerPaginated.value = false;
-    totalUsers.value = records.length;
-    totalPages.value = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
-    usersmobile.value = selectedGameId.value
-      ? records.filter((user) => String(user?.game_id ?? "") === String(selectedGameId.value))
-      : records;
-    totalUsers.value = usersmobile.value.length;
-    totalPages.value = Math.max(1, Math.ceil(usersmobile.value.length / PAGE_SIZE));
+    usersmobile.value = records;
   } catch (error) {
     usersmobile.value = [];
-    totalUsers.value = 0;
-    totalPages.value = 1;
     loadError.value = error?.message || "Failed to load mobile number of users";
   } finally {
     isLoadingMobile.value = false;
@@ -122,9 +251,18 @@ function getGameName(user) {
   return gameNameById.value.get(String(user?.game_id ?? "")) || "—";
 }
 
-watch(selectedGameId, () => {
+function getPhoneNumber(user) {
+  return user?.phone ?? user?.phone_number ?? "—";
+}
+
+watch([selectedGameId, verificationFilter, subscriberViewMode], () => {
   currentPage.value = 1;
-  loadUsersmobile();
+});
+
+watch(totalPages, (nextTotalPages) => {
+  if (currentPage.value > nextTotalPages) {
+    currentPage.value = nextTotalPages;
+  }
 });
 
 onMounted(() => {
@@ -143,12 +281,12 @@ onMounted(() => {
           <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">Signal Registry</p>
           <h1 class="mt-3 text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">API usersmobile</h1>
           <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
-            Verified player mobile entries mapped to their game worlds for quick monitoring and support tracing.
+            Player mobile entries mapped to their game worlds for quick monitoring and support tracing.
           </p>
         </div>
         <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Verified Entries</p>
-          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ usersmobile.length }}</p>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Shown Entries</p>
+          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ totalUsers }}</p>
         </div>
       </div>
     </section>
@@ -157,10 +295,28 @@ onMounted(() => {
       {{ loadError }}
     </p>
 
-    <div class="flex items-end justify-between gap-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Player Signals</p>
-        <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Verified mobile users</h2>
+        <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Subscriber Mobile Numbers</h2>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <select
+          v-model="verificationFilter"
+          class="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
+          aria-label="Verification filter"
+        >
+          <option value="verified">Show Verified</option>
+          <option value="not_verified">Show Not Verified</option>
+        </select>
+        <select
+          v-model="subscriberViewMode"
+          class="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
+          aria-label="Subscriber view mode"
+        >
+          <option value="all">Show Subscribers</option>
+          <option value="top_scorer">Top Scorer per Game</option>
+        </select>
       </div>
     </div>
 
@@ -169,19 +325,24 @@ onMounted(() => {
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.24em] text-emerald-800/70">
             <tr>
-              <th class="px-4 py-3">Game ID</th> 
-              <th class="px-4 py-3">Game Name</th> 
               <th class="px-4 py-3">Phone Number</th>
+              <th class="px-4 py-3">Game ID</th>
+              <th class="px-4 py-3">Game Name</th>
+              <th v-if="subscriberViewMode === 'top_scorer'" class="px-4 py-3">Points</th>
+              <th class="px-4 py-3">Subscribed Date</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-emerald-100/80">
             <tr v-if="isLoadingMobile">
-              <td colspan="3" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
+              <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
             </tr>
             <tr v-else-if="displayedUsersmobile.length === 0">
-              <td colspan="3" class="px-4 py-10 text-center text-emerald-900/55">No mobile users found.</td>
+              <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-emerald-900/55">{{ emptyUsersMessage }}</td>
             </tr>
             <tr v-for="user in displayedUsersmobile" :key="user.id" class="hover:bg-emerald-50/70">
+              <td class="px-4 py-3 font-semibold text-slate-900">
+                {{ getPhoneNumber(user) }}
+              </td>
               <td class="px-4 py-3 text-emerald-900/65">
                 <span class="inline-flex rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
                   {{ user.game_id }}
@@ -190,8 +351,11 @@ onMounted(() => {
               <td class="px-4 py-3 font-semibold text-emerald-950">
                 {{ getGameName(user) }}
               </td>
-              <td class="px-4 py-3 font-semibold text-slate-900">
-                {{ user.phone }}
+              <td v-if="subscriberViewMode === 'top_scorer'" class="whitespace-nowrap px-4 py-3 font-semibold text-emerald-950">
+                {{ formatUserScore(user) }}
+              </td>
+              <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
+                {{ formatDateTime(user.created_at) }}
               </td>
             </tr>
           </tbody>
