@@ -37,15 +37,17 @@ function isNavigationActive(routeName) {
 
       <div class="relative border-b border-white/10 px-5 py-5">
         <div class="flex items-center gap-3">
-          <div
-            class="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-300/15 text-sm font-black tracking-tight text-lime-100 shadow-lg shadow-emerald-950/30"
-          >
-            DA
+          <div class="flex h-14 w-28 items-center justify-center rounded-2xl border border-white/15 bg-white/95 p-2 shadow-lg shadow-emerald-950/35 ring-1 ring-white/10">
+            <img
+              src="/bybet.jpg"
+              alt="ByBet"
+              class="h-full w-full rounded-xl object-contain"
+            />
           </div>
-          <div class="min-w-0">
-            <p class="truncate text-base font-bold tracking-tight text-white">Docking Admin</p>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/60">Adventure Ops</p>
-          </div>
+          <!-- <div class="min-w-0">
+            <p class="truncate text-base font-bold tracking-tight text-white">Game Docking</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/60">Admin System</p>
+          </div> -->
         </div>
         <div class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
           <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-lime-100/60">Signed in as</p>
@@ -91,14 +93,27 @@ function isNavigationActive(routeName) {
         class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-emerald-200/70 bg-white/75 px-4 py-3 shadow-sm shadow-emerald-950/5 backdrop-blur-xl md:px-8"
       >
         <div class="flex min-w-0 items-center gap-3">
-          <div
-            class="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-950 text-sm font-black tracking-tight text-lime-100 shadow-sm md:hidden"
-          >
-            DA
+          <div class="hidden min-w-0 items-center gap-3 md:flex">
+
+            <div class="min-w-0">
+              <p class="truncate text-sm font-black uppercase tracking-[0.18em] text-emerald-950">
+                Game Docking - Admin System
+              </p>
+              <p class="truncate text-xs font-semibold text-emerald-900/55">
+                Professional dashboard console
+              </p>
+            </div>
+          </div>
+          <div class="flex h-10 w-20 items-center justify-center rounded-2xl border border-emerald-200 bg-white p-1.5 shadow-sm md:hidden">
+            <img
+              src="/bybet.jpg"
+              alt="ByBet"
+              class="h-full w-full rounded-xl object-contain"
+            />
           </div>
           <div class="min-w-0 md:hidden">
-            <p class="truncate text-sm font-bold text-emerald-950">Docking Admin</p>
-            <p class="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800/50">Adventure Ops</p>
+            <p class="truncate text-sm font-bold text-emerald-950">Game Docking</p>
+            <p class="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800/50">Admin System</p>
           </div>
         </div>
 

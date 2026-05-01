@@ -236,7 +236,7 @@ onMounted(() => {
       <div class="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="max-w-3xl">
           <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Dashboard</p>
-          <h1 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950 md:text-3xl">Game overview</h1>
+
           <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
             Browse every world in your lineup and jump straight into the detail view for players, activity, and health checks.
           </p>
