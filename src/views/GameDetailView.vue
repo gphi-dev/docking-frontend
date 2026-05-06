@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { apiRequest, resolveAssetUrl } from "../api/http";
+import { extractUsermobileRecords } from "../api/response";
 
 const SUBSCRIBER_PAGE_SIZE = 20;
 
@@ -14,15 +15,12 @@ const props = defineProps({
 
 const game = ref(null);
 const subscribers = ref([]);
-const usermobiles = ref([]);
 const currentPage = ref(1);
 const subscribersTotal = ref(0);
 const subscribersTotalPages = ref(1);
 const loadError = ref("");
-const usermobilesLoadError = ref("");
 const isLoading = ref(true);
 const isSubscribersLoading = ref(false);
-const isUsermobilesLoading = ref(false);
 const hasGameImageLoadFailed = ref(false);
 const hasGameBackgroundLoadFailed = ref(false);
 
@@ -72,8 +70,16 @@ function getGameIdentifierCandidates() {
   ].filter((value) => value !== undefined && value !== null && String(value).trim() !== ""))];
 }
 
-async function requestByGameCandidates(buildPath) {
-  const candidates = getGameIdentifierCandidates();
+function getUsermobileGameIdCandidates() {
+  return [...new Set([
+    game.value?.game_id,
+    props.gameId,
+    game.value?.slug,
+  ].filter((value) => value !== undefined && value !== null && String(value).trim() !== ""))];
+}
+
+async function requestByGameCandidates(buildPath, options = {}) {
+  const { candidates = getGameIdentifierCandidates() } = options;
   let lastError = null;
 
   for (const candidate of candidates) {
@@ -102,21 +108,16 @@ async function loadSubscribers() {
       return;
     }
 
-    const queryParameters = new URLSearchParams({
-      page: String(currentPage.value),
-      pageSize: String(SUBSCRIBER_PAGE_SIZE),
-    });
-
+    // usersmobile.game_id stores the public game_id, so try that before slug/router values.
     const subscribersPayload = await requestByGameCandidates(
-      (candidate) => `/api/subscribers/games/${candidate}?${queryParameters.toString()}`,
+      (candidate) => `/api/usermobile/games/${candidate}`,
+      { candidates: getUsermobileGameIdCandidates() },
     );
+    const subscriberRecords = extractUsermobileRecords(subscribersPayload);
 
-    subscribers.value = Array.isArray(subscribersPayload.items) ? subscribersPayload.items : [];
-    subscribersTotal.value = typeof subscribersPayload.total === "number" ? subscribersPayload.total : 0;
-    subscribersTotalPages.value = typeof subscribersPayload.totalPages === "number" ? subscribersPayload.totalPages : 1;
-    if (typeof subscribersPayload.page === "number") {
-      currentPage.value = subscribersPayload.page;
-    }
+    subscribers.value = subscriberRecords;
+    subscribersTotal.value = subscriberRecords.length;
+    subscribersTotalPages.value = Math.max(1, Math.ceil(subscriberRecords.length / SUBSCRIBER_PAGE_SIZE));
   } catch (error) {
     subscribers.value = [];
     subscribersTotal.value = 0;
@@ -128,36 +129,13 @@ async function loadSubscribers() {
   }
 }
 
-async function loadUsermobiles() {
-  usermobilesLoadError.value = "";
-  isUsermobilesLoading.value = true;
-  try {
-    if (!game.value) {
-      usermobiles.value = [];
-      return;
-    }
-
-    const usermobilesPayload = await requestByGameCandidates(
-      (candidate) => `/api/usermobile/games/${candidate}`,
-    );
-    usermobiles.value = Array.isArray(usermobilesPayload) ? usermobilesPayload : [];
-  } catch (error) {
-    usermobiles.value = [];
-    usermobilesLoadError.value = error?.message || "Failed to load verified mobile users";
-  } finally {
-    isUsermobilesLoading.value = false;
-  }
-}
-
 async function loadInitial() {
   loadError.value = "";
-  usermobilesLoadError.value = "";
   isLoading.value = true;
   hasGameImageLoadFailed.value = false;
   hasGameBackgroundLoadFailed.value = false;
   game.value = null;
   subscribers.value = [];
-  usermobiles.value = [];
   subscribersTotal.value = 0;
   subscribersTotalPages.value = 1;
 
@@ -170,12 +148,11 @@ async function loadInitial() {
 
   try {
     await loadGame();
-    await Promise.all([loadSubscribers(), loadUsermobiles()]);
+    await loadSubscribers();
   } catch (error) {
     loadError.value = error?.message || "Failed to load game";
     game.value = null;
     subscribers.value = [];
-    usermobiles.value = [];
   } finally {
     isLoading.value = false;
   }
@@ -192,6 +169,15 @@ async function goToPage(nextPage) {
     loadError.value = error?.message || "Failed to load subscribers";
   }
 }
+
+function getSubscriberPhone(subscriber) {
+  return subscriber?.phone || subscriber?.phone_number || "—";
+}
+
+const displayedSubscribers = computed(() => {
+  const startIndex = (currentPage.value - 1) * SUBSCRIBER_PAGE_SIZE;
+  return subscribers.value.slice(startIndex, startIndex + SUBSCRIBER_PAGE_SIZE);
+});
 
 onMounted(() => {
   loadInitial();
@@ -298,9 +284,9 @@ watch(
                     No subscribers for this game yet.
                   </td>
                 </tr>
-                <tr v-for="subscriber in subscribers" :key="subscriber.id" class="hover:bg-emerald-50/70">
+                <tr v-for="subscriber in displayedSubscribers" :key="subscriber.id" class="hover:bg-emerald-50/70">
                   <td class="whitespace-nowrap px-4 py-3 font-medium text-emerald-950">
-                    {{ subscriber.phone_number }}
+                    {{ getSubscriberPhone(subscriber) }}
                   </td>
                   <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
                     {{ formatDateTime(subscriber.created_at) }}
@@ -346,70 +332,6 @@ watch(
             </button>
           </div>
 
-        </div>
-      </section>
-
-      <section class="space-y-5">
-        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Signal Watch</p>
-            <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Verified Mobile Users</h2>
-          </div>
-          <p class="text-sm text-emerald-900/55">
-            {{ usermobiles.length }} Records
-          </p>
-        </div>
-
-        <p
-          v-if="usermobilesLoadError"
-          class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
-        >
-          {{ usermobilesLoadError }}
-        </p>
-
-        <div
-          class="relative overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]"
-          :class="{ 'opacity-70': isUsermobilesLoading }"
-        >
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
-              <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.24em] text-emerald-800/70">
-                <tr>
-                  <th class="px-4 py-3">Phone Number</th>
-                  <th class="px-4 py-3">Game ID</th>
-                  <th class="px-4 py-3">Verified</th>
-                  <th class="px-4 py-3">Added</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-emerald-100/80">
-                <tr v-if="!isUsermobilesLoading && usermobiles.length === 0">
-                  <td colspan="4" class="px-4 py-8 text-center text-emerald-900/55">
-                    No verified mobile users for this game yet.
-                  </td>
-                </tr>
-                <tr v-for="usermobile in usermobiles" :key="usermobile.id" class="hover:bg-emerald-50/70">
-                  <td class="whitespace-nowrap px-4 py-3 font-medium text-emerald-950">
-                    {{ usermobile.phone }}
-                  </td>
-                  <td class="whitespace-nowrap px-4 py-3 text-emerald-900/65">
-                    {{ usermobile.game_id }}
-                  </td>
-                  <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
-                    {{ usermobile.is_verified ? "Yes" : "No" }}
-                  </td>
-                  <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
-                    {{ formatDateTime(usermobile.created_at) }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p
-            v-if="isUsermobilesLoading"
-            class="absolute inset-0 flex items-center justify-center bg-white/60 text-sm font-medium text-emerald-900/60"
-          >
-            Loading verified mobile users…
-          </p>
         </div>
       </section>
     </template>
