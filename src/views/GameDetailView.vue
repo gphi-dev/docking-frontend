@@ -50,6 +50,11 @@ function formatDateTime(isoString) {
   }).format(date);
 }
 
+function getGameUrlLabel(gameRecord) {
+  const gameUrl = String(gameRecord?.game_url ?? "").trim();
+  return gameUrl || "—";
+}
+
 // async function loadGame() {
 //   const gamePayload = await apiRequest(`/api/games/${numericGameId.value}`);
 //   game.value = gamePayload;
@@ -246,6 +251,12 @@ watch(
             <div class="inline-flex rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
               Game ID: {{ game.game_id || "—" }}
             </div>
+            <p
+              class="max-w-2xl truncate rounded-xl bg-white/65 px-3 py-2 text-xs font-semibold text-emerald-900/65 ring-1 ring-inset ring-emerald-100"
+              :title="getGameUrlLabel(game)"
+            >
+              Game URL: {{ getGameUrlLabel(game) }}
+            </p>
             <p class="max-w-2xl text-sm leading-6 text-emerald-950/70">
               {{ game.description || "No description provided." }}
             </p>

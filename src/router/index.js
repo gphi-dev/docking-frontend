@@ -21,6 +21,23 @@ function getFirstAccessibleRouteName(authStore) {
   return accessFallbackRoutes.find((route) => authStore.canAccess(route.requiredPermission))?.name || null;
 }
 
+async function refreshAuthenticatedPermissions(authStore) {
+  if (!authStore.isAuthenticated) {
+    return;
+  }
+
+  try {
+    await authStore.refreshCurrentAdmin();
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      authStore.logout();
+      return;
+    }
+
+    console.error("Failed to refresh route permissions", error);
+  }
+}
+
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -81,16 +98,27 @@ export const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { name: "login", query: { redirect: to.fullPath } };
   }
+
+  if (authStore.isAuthenticated) {
+    await refreshAuthenticatedPermissions(authStore);
+  }
+
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    return { name: "login", query: { redirect: to.fullPath } };
+  }
+
   if (to.name === "login" && authStore.isAuthenticated) {
-    return { name: "dashboard" };
+    const fallbackRouteName = getFirstAccessibleRouteName(authStore);
+    return fallbackRouteName ? { name: fallbackRouteName } : false;
   }
   if (to.meta.requiresSuperAdmin && !authStore.isSuperAdmin) {
-    return { name: "dashboard" };
+    const fallbackRouteName = getFirstAccessibleRouteName(authStore);
+    return fallbackRouteName ? { name: fallbackRouteName } : false;
   }
   if (to.meta.requiredPermission && !authStore.canAccess(to.meta.requiredPermission)) {
     const fallbackRouteName = getFirstAccessibleRouteName(authStore);

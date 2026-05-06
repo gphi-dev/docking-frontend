@@ -64,6 +64,8 @@ function isCurrentRouteAllowed() {
   return !requiredPermission || authStore.canAccess(requiredPermission);
 }
 
+const canRenderCurrentRoute = computed(isCurrentRouteAllowed);
+
 function redirectIfCurrentRouteDenied() {
   if (isCurrentRouteAllowed()) {
     return;
@@ -233,7 +235,7 @@ watch(
       </header>
 
       <main class="flex-1 px-4 py-6 md:px-8 md:py-8">
-        <RouterView />
+        <RouterView v-if="canRenderCurrentRoute" />
       </main>
     </div>
   </div>

@@ -33,12 +33,12 @@ function isAdminRestrictedPermission(permissionKey) {
   return isDefaultAdminRole(selectedRoleDetails.value) && permissionKey === RBAC_MANAGE_PERMISSION_KEY;
 }
 
-function sanitizeRolePermissionKeys(role, permissionKeys) {
-  if (!isDefaultAdminRole(role)) {
-    return [...permissionKeys];
-  }
-
+function sanitizeRolePermissionKeys(permissionKeys) {
   return permissionKeys.filter((permissionKey) => permissionKey !== RBAC_MANAGE_PERMISSION_KEY);
+}
+
+function isEditablePermission(permission) {
+  return permission?.action_key !== RBAC_MANAGE_PERMISSION_KEY;
 }
 
 function clonePolicy(policy) {
@@ -55,7 +55,7 @@ function buildPolicyFromRoles(nextRoles) {
     const permissionKeys = Array.isArray(role.allowed_permission_keys)
       ? role.allowed_permission_keys
       : [];
-    policy[rolePolicyKey(role)] = sanitizeRolePermissionKeys(role, permissionKeys);
+    policy[rolePolicyKey(role)] = sanitizeRolePermissionKeys(permissionKeys);
     return policy;
   }, {});
 }
@@ -98,7 +98,8 @@ function getAllowedPermissionKeysFromMatrix(permissionMatrix) {
     .filter(Boolean);
 }
 
-const permissionCatalog = computed(() => groupPermissions(permissions.value));
+const editablePermissions = computed(() => permissions.value.filter(isEditablePermission));
+const permissionCatalog = computed(() => groupPermissions(editablePermissions.value));
 
 const selectedRoleDetails = computed(() =>
   roles.value.find((role) => rolePolicyKey(role) === selectedRoleId.value) || null,
@@ -110,7 +111,7 @@ const selectedRolePermissions = computed(() =>
 
 const isSelectedRoleLocked = computed(() => isSuperAdminRole(selectedRoleDetails.value));
 
-const totalPermissionCount = computed(() => permissions.value.length);
+const totalPermissionCount = computed(() => editablePermissions.value.length);
 const allowedCount = computed(() =>
   isSelectedRoleLocked.value ? totalPermissionCount.value : selectedRolePermissions.value.size,
 );
@@ -155,7 +156,7 @@ async function loadRbac() {
       ? clonePolicy(payload.policy)
       : buildPolicyFromRoles(roles.value);
     savedPolicy.value = roles.value.reduce((policy, role) => {
-      policy[rolePolicyKey(role)] = sanitizeRolePermissionKeys(role, rawPolicy[rolePolicyKey(role)] || []);
+      policy[rolePolicyKey(role)] = sanitizeRolePermissionKeys(rawPolicy[rolePolicyKey(role)] || []);
       return policy;
     }, {});
     draftPolicy.value = clonePolicy(savedPolicy.value);
@@ -183,10 +184,7 @@ async function savePolicy() {
     const payload = await apiRequest(`/api/rbac/roles/${selectedRoleId.value}/permissions`, {
       method: "PUT",
       body: JSON.stringify({
-        allowed_permission_keys: sanitizeRolePermissionKeys(
-          selectedRoleDetails.value,
-          draftPolicy.value[selectedRoleId.value] || [],
-        ),
+        allowed_permission_keys: sanitizeRolePermissionKeys(draftPolicy.value[selectedRoleId.value] || []),
       }),
     });
     const updatedRole = payload?.role;
@@ -198,7 +196,7 @@ async function savePolicy() {
       const mergedRole = {
         ...(roles.value.find((role) => rolePolicyKey(role) === rolePolicyKey(updatedRole)) || {}),
         ...updatedRole,
-        allowed_permission_keys: sanitizeRolePermissionKeys(updatedRole, updatedAllowedPermissionKeys),
+        allowed_permission_keys: sanitizeRolePermissionKeys(updatedAllowedPermissionKeys),
       };
 
       roles.value = roles.value.map((role) =>

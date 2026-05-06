@@ -50,6 +50,7 @@ export const useAuthStore = defineStore("auth", () => {
   const token = ref(localStorage.getItem(localStorageTokenKey) || "");
   const adminUser = ref(readJsonFromLocalStorage(localStorageAdminKey));
   const isRefreshingCurrentAdmin = ref(false);
+  let currentAdminRefreshPromise = null;
 
   const isAuthenticated = computed(() => Boolean(token.value));
   const adminRole = computed(() =>
@@ -133,20 +134,25 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   async function refreshCurrentAdmin() {
-    if (!token.value || isRefreshingCurrentAdmin.value) {
+    if (!token.value) {
       return adminUser.value;
     }
 
-    isRefreshingCurrentAdmin.value = true;
-    try {
-      const payload = await apiRequest("/api/auth/me");
-      if (payload?.admin) {
-        persistSession(token.value, payload.admin);
-      }
-      return adminUser.value;
-    } finally {
-      isRefreshingCurrentAdmin.value = false;
+    if (!currentAdminRefreshPromise) {
+      isRefreshingCurrentAdmin.value = true;
+      currentAdminRefreshPromise = (async () => {
+        const payload = await apiRequest("/api/auth/me");
+        if (payload?.admin) {
+          persistSession(token.value, payload.admin);
+        }
+        return adminUser.value;
+      })().finally(() => {
+        currentAdminRefreshPromise = null;
+        isRefreshingCurrentAdmin.value = false;
+      });
     }
+
+    return currentAdminRefreshPromise;
   }
 
   function logout() {
