@@ -14,6 +14,7 @@ const statusMessage = ref("");
 const loadError = ref("");
 const isLoading = ref(true);
 const isSaving = ref(false);
+const RBAC_MANAGE_PERMISSION_KEY = "rbac.manage";
 
 function rolePolicyKey(roleOrId) {
   const roleId = typeof roleOrId === "object" ? roleOrId?.id : roleOrId;
@@ -22,6 +23,22 @@ function rolePolicyKey(roleOrId) {
 
 function isSuperAdminRole(role) {
   return normalizeRole(role?.slug || role?.name) === "superadmin";
+}
+
+function isDefaultAdminRole(role) {
+  return normalizeRole(role?.slug || role?.name) === "admin";
+}
+
+function isAdminRestrictedPermission(permissionKey) {
+  return isDefaultAdminRole(selectedRoleDetails.value) && permissionKey === RBAC_MANAGE_PERMISSION_KEY;
+}
+
+function sanitizeRolePermissionKeys(role, permissionKeys) {
+  if (!isDefaultAdminRole(role)) {
+    return [...permissionKeys];
+  }
+
+  return permissionKeys.filter((permissionKey) => permissionKey !== RBAC_MANAGE_PERMISSION_KEY);
 }
 
 function clonePolicy(policy) {
@@ -35,9 +52,10 @@ function clonePolicy(policy) {
 
 function buildPolicyFromRoles(nextRoles) {
   return nextRoles.reduce((policy, role) => {
-    policy[rolePolicyKey(role)] = Array.isArray(role.allowed_permission_keys)
-      ? [...role.allowed_permission_keys]
+    const permissionKeys = Array.isArray(role.allowed_permission_keys)
+      ? role.allowed_permission_keys
       : [];
+    policy[rolePolicyKey(role)] = sanitizeRolePermissionKeys(role, permissionKeys);
     return policy;
   }, {});
 }
@@ -98,11 +116,15 @@ const allowedCount = computed(() =>
 );
 
 function isPermissionEnabled(permissionKey) {
+  if (isAdminRestrictedPermission(permissionKey)) {
+    return false;
+  }
+
   return isSelectedRoleLocked.value || selectedRolePermissions.value.has(permissionKey);
 }
 
 function togglePermission(permissionKey) {
-  if (isSelectedRoleLocked.value || !selectedRoleId.value) {
+  if (isSelectedRoleLocked.value || !selectedRoleId.value || isAdminRestrictedPermission(permissionKey)) {
     return;
   }
 
@@ -129,9 +151,13 @@ async function loadRbac() {
     const payload = await apiRequest("/api/rbac");
     roles.value = Array.isArray(payload?.roles) ? payload.roles : [];
     permissions.value = Array.isArray(payload?.permissions) ? payload.permissions : [];
-    savedPolicy.value = payload?.policy && typeof payload.policy === "object"
+    const rawPolicy = payload?.policy && typeof payload.policy === "object"
       ? clonePolicy(payload.policy)
       : buildPolicyFromRoles(roles.value);
+    savedPolicy.value = roles.value.reduce((policy, role) => {
+      policy[rolePolicyKey(role)] = sanitizeRolePermissionKeys(role, rawPolicy[rolePolicyKey(role)] || []);
+      return policy;
+    }, {});
     draftPolicy.value = clonePolicy(savedPolicy.value);
 
     if (!selectedRoleId.value || !roles.value.some((role) => rolePolicyKey(role) === selectedRoleId.value)) {
@@ -157,7 +183,10 @@ async function savePolicy() {
     const payload = await apiRequest(`/api/rbac/roles/${selectedRoleId.value}/permissions`, {
       method: "PUT",
       body: JSON.stringify({
-        allowed_permission_keys: draftPolicy.value[selectedRoleId.value] || [],
+        allowed_permission_keys: sanitizeRolePermissionKeys(
+          selectedRoleDetails.value,
+          draftPolicy.value[selectedRoleId.value] || [],
+        ),
       }),
     });
     const updatedRole = payload?.role;
@@ -169,7 +198,7 @@ async function savePolicy() {
       const mergedRole = {
         ...(roles.value.find((role) => rolePolicyKey(role) === rolePolicyKey(updatedRole)) || {}),
         ...updatedRole,
-        allowed_permission_keys: updatedAllowedPermissionKeys,
+        allowed_permission_keys: sanitizeRolePermissionKeys(updatedRole, updatedAllowedPermissionKeys),
       };
 
       roles.value = roles.value.map((role) =>
@@ -177,7 +206,7 @@ async function savePolicy() {
       );
       savedPolicy.value = {
         ...savedPolicy.value,
-        [rolePolicyKey(mergedRole)]: [...updatedAllowedPermissionKeys],
+        [rolePolicyKey(mergedRole)]: [...mergedRole.allowed_permission_keys],
       };
       draftPolicy.value = clonePolicy(savedPolicy.value);
       authStore.syncRolePermissions(mergedRole);
@@ -279,6 +308,9 @@ onMounted(() => {
           <p v-if="isSelectedRoleLocked" class="mt-3 rounded-2xl bg-emerald-950 px-3 py-2 text-xs font-semibold text-lime-100">
             Super Admin always keeps full system access.
           </p>
+          <p v-else-if="isDefaultAdminRole(selectedRoleDetails)" class="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+            Admin cannot be allowed to manage RBAC.
+          </p>
         </div>
       </aside>
 
@@ -355,7 +387,7 @@ onMounted(() => {
                         type="checkbox"
                         class="h-4 w-4 rounded border-emerald-300 text-emerald-700 focus:ring-emerald-500"
                         :checked="isPermissionEnabled(permission.action_key)"
-                        :disabled="isSelectedRoleLocked || isLoading || isSaving"
+                        :disabled="isSelectedRoleLocked || isAdminRestrictedPermission(permission.action_key) || isLoading || isSaving"
                         @change="togglePermission(permission.action_key)"
                       />
                       <span class="text-xs font-semibold text-emerald-900/60">
