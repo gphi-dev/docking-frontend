@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
-import { roleOptions } from "../rbac/permissions";
 import { useAuthStore } from "../stores/auth";
 
 const authStore = useAuthStore();
@@ -25,7 +24,7 @@ const userRoleLabel = computed(() => {
     return "Super Admin";
   }
 
-  return roleOptions.find((role) => role.value === authStore.adminRole)?.label || "Admin";
+  return authStore.adminUser?.rbac_role?.name || authStore.adminUser?.role || "Admin";
 });
 
 const adminUsername = computed(() => {

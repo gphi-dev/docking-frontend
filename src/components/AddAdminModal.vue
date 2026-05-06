@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { apiRequest } from "../api/http.js";
 
 const props = defineProps({
@@ -16,6 +16,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  roles: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const emit = defineEmits(["close", "created", "updated"]);
@@ -23,34 +27,71 @@ const emit = defineEmits(["close", "created", "updated"]);
 const username = ref("");
 const email = ref("");
 const password = ref("");
-const role = ref("admin");
+const selectedRoleId = ref("");
+const status = ref("active");
 const errorMessage = ref("");
 const isSubmitting = ref(false);
 
+const activeRoles = computed(() => props.roles.filter((role) => role.is_active !== false));
+const selectableRoles = computed(() =>
+  props.roles.filter((role) => role.is_active !== false || String(role.id) === String(selectedRoleId.value)),
+);
+const selectedRole = computed(() =>
+  props.roles.find((role) => String(role.id) === String(selectedRoleId.value)) || null,
+);
+
+function clearCreateCredentials() {
+  if (isEditMode()) {
+    return;
+  }
+
+  username.value = "";
+  password.value = "";
+}
+
+function forceBlankCreateCredentials() {
+  clearCreateCredentials();
+  nextTick(() => {
+    clearCreateCredentials();
+    if (typeof window !== "undefined") {
+      window.setTimeout(clearCreateCredentials, 0);
+      window.setTimeout(clearCreateCredentials, 100);
+    }
+  });
+}
+
 function isEditMode() {
   return props.mode === "edit";
+}
+
+function getDefaultRoleId() {
+  const defaultRole = activeRoles.value.find((role) => role.slug === "admin") || activeRoles.value[0];
+  return defaultRole?.id ? String(defaultRole.id) : "";
 }
 
 function resetForm() {
   username.value = "";
   email.value = "";
   password.value = "";
-  role.value = "admin";
+  selectedRoleId.value = getDefaultRoleId();
+  status.value = "active";
   errorMessage.value = "";
   isSubmitting.value = false;
+  forceBlankCreateCredentials();
 }
 
 function populateForm() {
   username.value = props.user?.username ?? "";
   email.value = props.user?.email ?? "";
   password.value = ""; // Usually keep password blank during edit
-  role.value = props.user?.role ?? "admin";
+  selectedRoleId.value = props.user?.role_id ? String(props.user.role_id) : getDefaultRoleId();
+  status.value = props.user?.status ?? "active";
   errorMessage.value = "";
   isSubmitting.value = false;
 }
 
 watch(
-  () => [props.open, props.mode, props.user],
+  () => [props.open, props.mode, props.user, props.roles],
   ([isOpen]) => {
     if (!isOpen) return;
     isEditMode() ? populateForm() : resetForm();
@@ -58,17 +99,16 @@ watch(
   { immediate: true },
 );
 
-function handleBackdropClick() {
-  if (!isSubmitting.value) {
-    emit("close");
-  }
-}
-
 async function handleSubmit() {
   errorMessage.value = "";
   
   if (!username.value.trim() || !email.value.trim()) {
     errorMessage.value = "Username and Email are required";
+    return;
+  }
+
+  if (!selectedRoleId.value) {
+    errorMessage.value = "Role is required";
     return;
   }
 
@@ -82,7 +122,8 @@ async function handleSubmit() {
     const payload = {
       username: username.value.trim(),
       email: email.value.trim(),
-      role: role.value,
+      role_id: selectedRoleId.value,
+      status: status.value,
     };
 
     // Only include password if it's a new user or the field is filled
@@ -92,10 +133,6 @@ async function handleSubmit() {
 
     const savedUser = await apiRequest(isEditMode() ? `/api/admins/${props.user?.id}` : "/api/admins", {
       method: isEditMode() ? "PUT" : "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzc1ODEwNzU2LCJleHAiOjE3NzU4Mzk1NTYsInN1YiI6IjEifQ.oGCNUf1jrQJOqzMB-rwHaLSAQl4MJArK647pKz_r7kc`
-      },
       body: JSON.stringify(payload),
     });
 
@@ -116,7 +153,8 @@ async function handleSubmit() {
       class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
-      @click.self="handleBackdropClick"
+      tabindex="-1"
+      @keydown.esc.stop.prevent
     >
       <div
         class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
@@ -141,7 +179,7 @@ async function handleSubmit() {
           </button>
         </div>
 
-        <form class="space-y-4" @submit.prevent="handleSubmit">
+        <form class="space-y-4" autocomplete="off" @submit.prevent="handleSubmit">
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
               Username
@@ -149,6 +187,9 @@ async function handleSubmit() {
             <input
               v-model="username"
               required
+              :autocomplete="isEditMode() ? 'username' : 'new-password'"
+              autocapitalize="off"
+              spellcheck="false"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
               placeholder="e.g. jdoe_admin"
             />
@@ -175,6 +216,7 @@ async function handleSubmit() {
               v-model="password"
               type="password"
               :required="!isEditMode()"
+              autocomplete="new-password"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
               placeholder="••••••••"
             />
@@ -185,19 +227,35 @@ async function handleSubmit() {
               Role
             </label>
             <select
-              v-model="role"
+              v-model="selectedRoleId"
+              required
               class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
             >
-              <option value="admin">Admin</option>
-              <option value="superadmin">Super Admin</option>
+              <option value="" disabled>Select role</option>
+              <option
+                v-for="roleOption in selectableRoles"
+                :key="roleOption.id"
+                :value="String(roleOption.id)"
+              >
+                {{ roleOption.name }}{{ roleOption.is_active === false ? " (Inactive)" : "" }}
+              </option>
             </select>
             <p class="mt-2 text-xs leading-5 text-slate-500">
-              {{
-                role === "superadmin"
-                  ? "Super Admin can create, update, and delete games and admin users."
-                  : "Admin can create and update games only, with no access to admin users."
-              }}
+              {{ selectedRole?.description || "Role permissions are managed from the RBAC screen." }}
             </p>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Status
+            </label>
+            <select
+              v-model="status"
+              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
 
           <p v-if="errorMessage" class="text-sm text-rose-600">

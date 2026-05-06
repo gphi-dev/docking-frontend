@@ -6,6 +6,7 @@ import { useAuthStore } from "../stores/auth";
 
 const authStore = useAuthStore();
 const admins = ref([]);
+const roles = ref([]);
 const loadError = ref("");
 const isLoading = ref(true);
 
@@ -38,6 +39,14 @@ function formatRole(role) {
   return "Admin";
 }
 
+function getAdminRoleName(admin) {
+  return admin?.rbac_role?.name || admin?.role || "Admin";
+}
+
+function formatStatus(status) {
+  return String(status || "active").toLowerCase() === "inactive" ? "Inactive" : "Active";
+}
+
 async function loadAdmins() {
   loadError.value = "";
   isLoading.value = true;
@@ -51,10 +60,33 @@ async function loadAdmins() {
   }
 }
 
+async function loadRoles() {
+  try {
+    const payload = await apiRequest("/api/rbac/roles");
+    roles.value = Array.isArray(payload) ? payload : [];
+    return true;
+  } catch (error) {
+    loadError.value = error?.message || "Failed to load roles";
+    return false;
+  }
+}
+
+async function ensureRolesLoaded() {
+  if (roles.value.length > 0) {
+    return true;
+  }
+
+  return loadRoles();
+}
+
 // Added the function to open the Add Modal
-function openAddAdminModal() {
+async function openAddAdminModal() {
   if (!authStore.canAccess("admins.create")) {
     loadError.value = "Only Super Admin users can create admin users.";
+    return;
+  }
+
+  if (!(await ensureRolesLoaded())) {
     return;
   }
 
@@ -62,9 +94,13 @@ function openAddAdminModal() {
 }
 
 // Added the function to open the Edit Modal so you have it ready
-function openEditAdminModal(admin) {
+async function openEditAdminModal(admin) {
   if (!authStore.canAccess("admins.update")) {
     loadError.value = "Only Super Admin users can update admin users.";
+    return;
+  }
+
+  if (!(await ensureRolesLoaded())) {
     return;
   }
 
@@ -120,6 +156,7 @@ function handleAdminUpdated() {
 
 onMounted(() => {
   loadAdmins();
+  loadRoles();
 });
 </script>
 
@@ -171,16 +208,17 @@ onMounted(() => {
             <tr>
               <th class="px-4 py-3">Username</th>
               <th class="px-4 py-3">Role</th>
+              <th class="px-4 py-3">Status</th>
               <th class="px-4 py-3">Created</th>
               <th class="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-emerald-100/80">
             <tr v-if="isLoading">
-              <td colspan="4" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
+              <td colspan="5" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
             </tr>
             <tr v-else-if="admins.length === 0">
-              <td colspan="4" class="px-4 py-10 text-center text-emerald-900/55">No admin users found.</td>
+              <td colspan="5" class="px-4 py-10 text-center text-emerald-900/55">No admin users found.</td>
             </tr>
             <tr v-for="admin in admins" :key="admin.id" class="hover:bg-emerald-50/70">
               <td class="px-4 py-3 font-semibold text-emerald-950">
@@ -190,12 +228,24 @@ onMounted(() => {
                 <span
                   class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset"
                   :class="
-                    formatRole(admin.role) === 'Super Admin'
+                    formatRole(getAdminRoleName(admin)) === 'Super Admin'
                       ? 'bg-emerald-950 text-lime-100 ring-emerald-900/20'
                       : 'bg-emerald-400/15 text-emerald-900 ring-emerald-500/20'
                   "
                 >
-                  {{ formatRole(admin.role) }}
+                  {{ getAdminRoleName(admin) }}
+                </span>
+              </td>
+              <td class="whitespace-nowrap px-4 py-3">
+                <span
+                  class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset"
+                  :class="
+                    formatStatus(admin.status) === 'Active'
+                      ? 'bg-lime-400/15 text-lime-900 ring-lime-500/20'
+                      : 'bg-slate-100 text-slate-600 ring-slate-300/60'
+                  "
+                >
+                  {{ formatStatus(admin.status) }}
                 </span>
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
@@ -236,6 +286,7 @@ onMounted(() => {
 
     <AddAdminModal
       :open="isAddAdminModalOpen"
+      :roles="roles"
       mode="create"
       @close="isAddAdminModalOpen = false"
       @created="handleAdminCreated"
@@ -244,6 +295,7 @@ onMounted(() => {
     <AddAdminModal
       :open="isEditAdminModalOpen"
       :user="selectedAdmin"
+      :roles="roles"
       mode="edit"
       @close="isEditAdminModalOpen = false"
       @updated="handleAdminUpdated"

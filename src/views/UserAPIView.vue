@@ -54,8 +54,12 @@ function formatDateTime(isoString) {
   }).format(date);
 }
 
-function getCreatedTimestamp(user) {
-  const timestamp = new Date(user?.created_at || 0).getTime();
+function getSubscribedDate(user) {
+  return user?.verified_at || user?.created_at || null;
+}
+
+function getSubscribedTimestamp(user) {
+  const timestamp = new Date(getSubscribedDate(user) || 0).getTime();
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
@@ -102,7 +106,7 @@ function shouldReplaceTopScorer(currentUser, nextUser) {
     return false;
   }
 
-  return getCreatedTimestamp(nextUser) > getCreatedTimestamp(currentUser);
+  return getSubscribedTimestamp(nextUser) > getSubscribedTimestamp(currentUser);
 }
 
 const gameNameById = computed(() => {
@@ -120,8 +124,8 @@ const gameNameById = computed(() => {
   return entries;
 });
 
-function sortByCreatedDateDesc(left, right) {
-  return getCreatedTimestamp(right) - getCreatedTimestamp(left);
+function sortBySubscribedDateDesc(left, right) {
+  return getSubscribedTimestamp(right) - getSubscribedTimestamp(left);
 }
 
 function sortByGameId(left, right) {
@@ -172,7 +176,7 @@ const filteredUsersmobile = computed(() => {
     return matchesGame && matchesVerification;
   });
 
-  const sortedUsers = [...matchingUsers].sort(sortByCreatedDateDesc);
+  const sortedUsers = [...matchingUsers].sort(sortBySubscribedDateDesc);
   if (isTopScorerMode.value) {
     return getTopScorersPerGame(sortedUsers);
   }
@@ -182,7 +186,7 @@ const filteredUsersmobile = computed(() => {
 
 const totalUsers = computed(() => filteredUsersmobile.value.length);
 const totalPages = computed(() => (isTopScorerMode.value ? 1 : Math.max(1, Math.ceil(totalUsers.value / PAGE_SIZE))));
-const tableColumnCount = computed(() => (isTopScorerMode.value ? 5 : 4));
+const tableColumnCount = 5;
 
 const displayedUsersmobile = computed(() => {
   if (isServerPaginated.value || isTopScorerMode.value) {
@@ -333,7 +337,7 @@ onMounted(() => {
               <th class="px-4 py-3">Phone Number</th>
               <th class="px-4 py-3">Game ID</th>
               <th class="px-4 py-3">Game Name</th>
-              <th v-if="isTopScorerMode" class="px-4 py-3">Points</th>
+              <th class="px-4 py-3">Points</th>
               <th class="px-4 py-3">Subscribed Date</th>
             </tr>
           </thead>
@@ -356,11 +360,11 @@ onMounted(() => {
               <td class="px-4 py-3 font-semibold text-emerald-950">
                 {{ getGameName(user) }}
               </td>
-              <td v-if="isTopScorerMode" class="whitespace-nowrap px-4 py-3 font-semibold text-emerald-950">
+              <td class="whitespace-nowrap px-4 py-3 font-semibold text-emerald-950">
                 {{ formatUserScore(user) }}
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
-                {{ formatDateTime(user.created_at) }}
+                {{ formatDateTime(getSubscribedDate(user)) }}
               </td>
             </tr>
           </tbody>
