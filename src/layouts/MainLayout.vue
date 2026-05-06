@@ -28,6 +28,12 @@ const userRoleLabel = computed(() => {
   return roleOptions.find((role) => role.value === authStore.adminRole)?.label || "Admin";
 });
 
+const adminUsername = computed(() => {
+  const username = authStore.adminUser?.username || authStore.adminUser?.name || authStore.adminUser?.email;
+
+  return username ? String(username) : "Admin";
+});
+
 function handleLogout() {
   authStore.logout();
   router.push({ name: "login" });
@@ -65,9 +71,8 @@ function isNavigationActive(routeName) {
           </div>
         </div>
         <div class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-          <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-lime-100/60">User Role</p>
-          <div class="mt-2 flex items-center justify-between">
-            <p class="text-sm font-semibold text-white">{{ userRoleLabel }}</p>
+          <div class="flex items-center justify-between gap-3">
+            <p class="truncate text-base font-bold text-white">Hello {{ adminUsername }}</p>
             <span class="h-2.5 w-2.5 rounded-full bg-lime-300 shadow-[0_0_20px_rgba(190,242,100,0.9)]" />
           </div>
         </div>
