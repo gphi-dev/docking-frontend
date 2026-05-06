@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { apiRequest } from "../api/http.js";
 
 const props = defineProps({
@@ -40,6 +40,26 @@ const selectedRole = computed(() =>
   props.roles.find((role) => String(role.id) === String(selectedRoleId.value)) || null,
 );
 
+function clearCreateCredentials() {
+  if (isEditMode()) {
+    return;
+  }
+
+  username.value = "";
+  password.value = "";
+}
+
+function forceBlankCreateCredentials() {
+  clearCreateCredentials();
+  nextTick(() => {
+    clearCreateCredentials();
+    if (typeof window !== "undefined") {
+      window.setTimeout(clearCreateCredentials, 0);
+      window.setTimeout(clearCreateCredentials, 100);
+    }
+  });
+}
+
 function isEditMode() {
   return props.mode === "edit";
 }
@@ -57,6 +77,7 @@ function resetForm() {
   status.value = "active";
   errorMessage.value = "";
   isSubmitting.value = false;
+  forceBlankCreateCredentials();
 }
 
 function populateForm() {
@@ -158,7 +179,7 @@ async function handleSubmit() {
           </button>
         </div>
 
-        <form class="space-y-4" @submit.prevent="handleSubmit">
+        <form class="space-y-4" autocomplete="off" @submit.prevent="handleSubmit">
           <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
               Username
@@ -166,6 +187,9 @@ async function handleSubmit() {
             <input
               v-model="username"
               required
+              :autocomplete="isEditMode() ? 'username' : 'new-password'"
+              autocapitalize="off"
+              spellcheck="false"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
               placeholder="e.g. jdoe_admin"
             />
@@ -192,6 +216,7 @@ async function handleSubmit() {
               v-model="password"
               type="password"
               :required="!isEditMode()"
+              autocomplete="new-password"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
               placeholder="••••••••"
             />
