@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, watch } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 
@@ -8,15 +8,24 @@ const route = useRoute();
 const router = useRouter();
 
 const navigationLinks = [
-  { to: { name: "dashboard" }, label: "Dashboard" },
+  { to: { name: "dashboard" }, label: "Dashboard", requiredPermission: "dashboard.view" },
   { to: { name: "games" }, label: "Games", requiredPermission: "games.view" },
   { to: { name: "admins" }, label: "Admin users", requiredPermission: "admins.view" },
   { to: { name: "rbac" }, label: "RBAC", requiredPermission: "rbac.manage" },
   { to: { name: "user-api" }, label: "Subscribers", requiredPermission: "subscribers.view" },
 ];
 
+function getNavigationRequiredPermission(navigationItem) {
+  return navigationItem.requiredPermission || router.resolve(navigationItem.to).meta.requiredPermission || "";
+}
+
+function canShowNavigationItem(navigationItem) {
+  const requiredPermission = getNavigationRequiredPermission(navigationItem);
+  return !requiredPermission || authStore.canAccess(requiredPermission);
+}
+
 const visibleNavigationLinks = computed(() =>
-  navigationLinks.filter((navigationItem) => !navigationItem.requiredPermission || authStore.canAccess(navigationItem.requiredPermission)),
+  navigationLinks.filter(canShowNavigationItem),
 );
 
 const userRoleLabel = computed(() => {
@@ -45,6 +54,68 @@ function isNavigationActive(routeName) {
 
   return route.name === routeName;
 }
+
+function getFirstVisibleNavigationTarget() {
+  return visibleNavigationLinks.value[0]?.to || null;
+}
+
+function isCurrentRouteAllowed() {
+  const requiredPermission = route.meta.requiredPermission;
+  return !requiredPermission || authStore.canAccess(requiredPermission);
+}
+
+function redirectIfCurrentRouteDenied() {
+  if (isCurrentRouteAllowed()) {
+    return;
+  }
+
+  const fallbackTarget = getFirstVisibleNavigationTarget();
+  if (fallbackTarget && fallbackTarget.name !== route.name) {
+    router.replace(fallbackTarget);
+  }
+}
+
+async function refreshSessionPermissions() {
+  if (!authStore.isAuthenticated) {
+    return;
+  }
+
+  try {
+    await authStore.refreshCurrentAdmin();
+    redirectIfCurrentRouteDenied();
+  } catch (error) {
+    if (error?.status !== 401 && error?.status !== 403) {
+      console.error("Failed to refresh admin permissions", error);
+    }
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === "visible") {
+    refreshSessionPermissions();
+  }
+}
+
+onMounted(() => {
+  refreshSessionPermissions();
+  window.addEventListener("focus", refreshSessionPermissions);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("focus", refreshSessionPermissions);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+});
+
+watch(
+  [
+    () => route.name,
+    () => route.meta.requiredPermission,
+    () => authStore.isSuperAdmin,
+    () => (Array.isArray(authStore.permissionKeys) ? authStore.permissionKeys.join("|") : ""),
+  ],
+  redirectIfCurrentRouteDenied,
+);
 </script>
 
 <template>

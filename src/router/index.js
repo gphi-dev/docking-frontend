@@ -9,6 +9,18 @@ import AdminUsersView from "../views/AdminUsersView.vue";
 import UserAPIView from "../views/UserAPIView.vue";
 import RBACView from "../views/RBACView.vue";
 
+const accessFallbackRoutes = [
+  { name: "dashboard", requiredPermission: "dashboard.view" },
+  { name: "games", requiredPermission: "games.view" },
+  { name: "admins", requiredPermission: "admins.view" },
+  { name: "rbac", requiredPermission: "rbac.manage" },
+  { name: "user-api", requiredPermission: "subscribers.view" },
+];
+
+function getFirstAccessibleRouteName(authStore) {
+  return accessFallbackRoutes.find((route) => authStore.canAccess(route.requiredPermission))?.name || null;
+}
+
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -27,6 +39,7 @@ export const router = createRouter({
           path: "",
           name: "dashboard",
           component: DashboardView,
+          meta: { requiredPermission: "dashboard.view" },
         },
         {
           path: "games",
@@ -80,7 +93,11 @@ router.beforeEach((to) => {
     return { name: "dashboard" };
   }
   if (to.meta.requiredPermission && !authStore.canAccess(to.meta.requiredPermission)) {
-    return { name: "dashboard" };
+    const fallbackRouteName = getFirstAccessibleRouteName(authStore);
+    if (fallbackRouteName && fallbackRouteName !== to.name) {
+      return { name: fallbackRouteName };
+    }
+    return false;
   }
   return true;
 });

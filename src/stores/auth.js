@@ -31,12 +31,16 @@ function getPermissionKey(permission) {
 }
 
 function getAdminPermissionKeys(adminUser) {
-  if (!Array.isArray(adminUser?.permissions)) {
+  const permissionRecords = Array.isArray(adminUser?.permissions) ? adminUser.permissions : [];
+  const permissionKeys = Array.isArray(adminUser?.permission_keys) ? adminUser.permission_keys : [];
+  const combinedPermissions = [...permissionRecords, ...permissionKeys];
+
+  if (combinedPermissions.length === 0) {
     return [];
   }
 
   return [...new Set(
-    adminUser.permissions
+    combinedPermissions
       .map((permission) => String(getPermissionKey(permission)).trim())
       .filter(Boolean),
   )];
@@ -45,6 +49,7 @@ function getAdminPermissionKeys(adminUser) {
 export const useAuthStore = defineStore("auth", () => {
   const token = ref(localStorage.getItem(localStorageTokenKey) || "");
   const adminUser = ref(readJsonFromLocalStorage(localStorageAdminKey));
+  const isRefreshingCurrentAdmin = ref(false);
 
   const isAuthenticated = computed(() => Boolean(token.value));
   const adminRole = computed(() =>
@@ -83,6 +88,7 @@ export const useAuthStore = defineStore("auth", () => {
     const nextAdminUser = {
       ...adminUser.value,
       permissions: Array.isArray(nextPermissions) ? nextPermissions : [],
+      permission_keys: Array.isArray(nextPermissions) ? nextPermissions : [],
     };
     persistSession(token.value, nextAdminUser);
   }
@@ -126,6 +132,23 @@ export const useAuthStore = defineStore("auth", () => {
     return payload;
   }
 
+  async function refreshCurrentAdmin() {
+    if (!token.value || isRefreshingCurrentAdmin.value) {
+      return adminUser.value;
+    }
+
+    isRefreshingCurrentAdmin.value = true;
+    try {
+      const payload = await apiRequest("/api/auth/me");
+      if (payload?.admin) {
+        persistSession(token.value, payload.admin);
+      }
+      return adminUser.value;
+    } finally {
+      isRefreshingCurrentAdmin.value = false;
+    }
+  }
+
   function logout() {
     persistSession("", null);
   }
@@ -133,6 +156,7 @@ export const useAuthStore = defineStore("auth", () => {
   return {
     token,
     adminUser,
+    isRefreshingCurrentAdmin,
     isAuthenticated,
     adminRole,
     permissionKeys,
@@ -146,6 +170,7 @@ export const useAuthStore = defineStore("auth", () => {
     setAdminUserPermissions,
     syncRolePermissions,
     loginWithCredentials,
+    refreshCurrentAdmin,
     logout,
   };
 });
