@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
+import { roleOptions } from "../rbac/permissions";
 import { useAuthStore } from "../stores/auth";
 
 const authStore = useAuthStore();
@@ -18,6 +19,14 @@ const navigationLinks = [
 const visibleNavigationLinks = computed(() =>
   navigationLinks.filter((navigationItem) => !navigationItem.requiredPermission || authStore.canAccess(navigationItem.requiredPermission)),
 );
+
+const userRoleLabel = computed(() => {
+  if (authStore.isSuperAdmin) {
+    return "Super Admin";
+  }
+
+  return roleOptions.find((role) => role.value === authStore.adminRole)?.label || "Admin";
+});
 
 function handleLogout() {
   authStore.logout();
@@ -56,9 +65,9 @@ function isNavigationActive(routeName) {
           </div>
         </div>
         <div class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-          <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-lime-100/60">Signed in as</p>
+          <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-lime-100/60">User Role</p>
           <div class="mt-2 flex items-center justify-between">
-            <p class="text-sm font-semibold text-white">{{ authStore.adminUser?.username || "admin" }}</p>
+            <p class="text-sm font-semibold text-white">{{ userRoleLabel }}</p>
             <span class="h-2.5 w-2.5 rounded-full bg-lime-300 shadow-[0_0_20px_rgba(190,242,100,0.9)]" />
           </div>
         </div>
@@ -86,9 +95,9 @@ function isNavigationActive(routeName) {
 
       <div class="relative border-t border-white/10 p-4">
         <div class="rounded-2xl border border-white/10 bg-white/10 p-4">
-          <p class="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-100/45">Signed in as</p>
+          <p class="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-100/45">User Role</p>
           <p class="mt-1 truncate text-sm font-semibold text-white">
-            {{ authStore.adminUser?.username || "admin" }}
+            {{ userRoleLabel }}
           </p>
         </div>
       </div>
