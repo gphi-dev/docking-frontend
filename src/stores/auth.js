@@ -1,12 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { apiRequest } from "../api/http";
-import {
-  normalizeRole,
-  readRbacPolicy,
-  roleHasPermission,
-  saveRbacPolicy,
-} from "../rbac/permissions";
+import { normalizeRole } from "../rbac/permissions";
 
 const localStorageTokenKey = "docking_admin_token";
 const localStorageAdminKey = "docking_admin_user";
@@ -27,14 +22,40 @@ function isTruthy(value) {
   return value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";
 }
 
+function getPermissionKey(permission) {
+  if (typeof permission === "string") {
+    return permission;
+  }
+
+  return permission?.action_key || permission?.key || "";
+}
+
+function getAdminPermissionKeys(adminUser) {
+  if (!Array.isArray(adminUser?.permissions)) {
+    return [];
+  }
+
+  return [...new Set(
+    adminUser.permissions
+      .map((permission) => String(getPermissionKey(permission)).trim())
+      .filter(Boolean),
+  )];
+}
+
 export const useAuthStore = defineStore("auth", () => {
   const token = ref(localStorage.getItem(localStorageTokenKey) || "");
   const adminUser = ref(readJsonFromLocalStorage(localStorageAdminKey));
-  const rbacPolicy = ref(readRbacPolicy());
 
   const isAuthenticated = computed(() => Boolean(token.value));
-  const adminRole = computed(() => normalizeRole(adminUser.value?.role));
-  const isSuperAdmin = computed(() => adminRole.value === "superadmin" || isTruthy(adminUser.value?.is_super_admin));
+  const adminRole = computed(() =>
+    normalizeRole(adminUser.value?.rbac_role?.slug || adminUser.value?.rbac_role?.name || adminUser.value?.role),
+  );
+  const permissionKeys = computed(() => getAdminPermissionKeys(adminUser.value));
+  const isSuperAdmin = computed(() =>
+    adminRole.value === "superadmin" ||
+    adminRole.value === "super-admin" ||
+    isTruthy(adminUser.value?.is_super_admin),
+  );
 
   function canAccess(permissionKey) {
     if (!isAuthenticated.value) {
@@ -45,7 +66,7 @@ export const useAuthStore = defineStore("auth", () => {
       return true;
     }
 
-    return roleHasPermission(rbacPolicy.value, adminRole.value, permissionKey);
+    return permissionKeys.value.includes(permissionKey);
   }
 
   const canCreateGames = computed(() => canAccess("games.create"));
@@ -54,8 +75,28 @@ export const useAuthStore = defineStore("auth", () => {
   const canManageAdmins = computed(() => canAccess("admins.view"));
   const canManageRbac = computed(() => canAccess("rbac.manage"));
 
-  function setRbacPolicy(nextPolicy) {
-    rbacPolicy.value = saveRbacPolicy(nextPolicy);
+  function setAdminUserPermissions(nextPermissions) {
+    if (!adminUser.value) {
+      return;
+    }
+
+    const nextAdminUser = {
+      ...adminUser.value,
+      permissions: Array.isArray(nextPermissions) ? nextPermissions : [],
+    };
+    persistSession(token.value, nextAdminUser);
+  }
+
+  function syncRolePermissions(roleRecord) {
+    if (!adminUser.value || !roleRecord) {
+      return;
+    }
+
+    if (String(adminUser.value.role_id ?? "") !== String(roleRecord.id ?? "")) {
+      return;
+    }
+
+    setAdminUserPermissions(roleRecord.allowed_permission_keys || []);
   }
 
   function persistSession(nextToken, nextAdminUser) {
@@ -92,9 +133,9 @@ export const useAuthStore = defineStore("auth", () => {
   return {
     token,
     adminUser,
-    rbacPolicy,
     isAuthenticated,
     adminRole,
+    permissionKeys,
     isSuperAdmin,
     canCreateGames,
     canUpdateGames,
@@ -102,7 +143,8 @@ export const useAuthStore = defineStore("auth", () => {
     canManageAdmins,
     canManageRbac,
     canAccess,
-    setRbacPolicy,
+    setAdminUserPermissions,
+    syncRolePermissions,
     loginWithCredentials,
     logout,
   };

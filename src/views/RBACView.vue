@@ -1,44 +1,112 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { apiRequest } from "../api/http";
+import { normalizeRole } from "../rbac/permissions";
 import { useAuthStore } from "../stores/auth";
-import {
-  cloneRbacPolicy,
-  defaultRbacPolicy,
-  getRolePermissions,
-  permissionCatalog,
-  roleOptions,
-} from "../rbac/permissions";
 
 const authStore = useAuthStore();
-const selectedRole = ref("admin");
-const draftPolicy = ref(cloneRbacPolicy(authStore.rbacPolicy));
+const roles = ref([]);
+const permissions = ref([]);
+const selectedRoleId = ref("");
+const draftPolicy = ref({});
+const savedPolicy = ref({});
 const statusMessage = ref("");
+const loadError = ref("");
+const isLoading = ref(true);
+const isSaving = ref(false);
+
+function rolePolicyKey(roleOrId) {
+  const roleId = typeof roleOrId === "object" ? roleOrId?.id : roleOrId;
+  return String(roleId ?? "");
+}
+
+function isSuperAdminRole(role) {
+  return normalizeRole(role?.slug || role?.name) === "superadmin";
+}
+
+function clonePolicy(policy) {
+  return Object.fromEntries(
+    Object.entries(policy || {}).map(([roleId, permissionKeys]) => [
+      roleId,
+      Array.isArray(permissionKeys) ? [...permissionKeys] : [],
+    ]),
+  );
+}
+
+function buildPolicyFromRoles(nextRoles) {
+  return nextRoles.reduce((policy, role) => {
+    policy[rolePolicyKey(role)] = Array.isArray(role.allowed_permission_keys)
+      ? [...role.allowed_permission_keys]
+      : [];
+    return policy;
+  }, {});
+}
+
+function selectInitialRole(nextRoles) {
+  const preferredRole =
+    nextRoles.find((role) => role.slug === "admin") ||
+    nextRoles.find((role) => !isSuperAdminRole(role)) ||
+    nextRoles[0];
+
+  selectedRoleId.value = preferredRole ? rolePolicyKey(preferredRole) : "";
+}
+
+function groupPermissions(permissionRecords) {
+  const groupsByName = new Map();
+
+  for (const permission of permissionRecords) {
+    const groupName = permission.access_group || "Other";
+    if (!groupsByName.has(groupName)) {
+      groupsByName.set(groupName, []);
+    }
+
+    groupsByName.get(groupName).push(permission);
+  }
+
+  return Array.from(groupsByName.entries()).map(([group, groupPermissions]) => ({
+    group,
+    permissions: groupPermissions,
+  }));
+}
+
+function getAllowedPermissionKeysFromMatrix(permissionMatrix) {
+  if (!Array.isArray(permissionMatrix)) {
+    return [];
+  }
+
+  return permissionMatrix
+    .filter((permission) => Boolean(permission?.is_allowed))
+    .map((permission) => permission.action_key)
+    .filter(Boolean);
+}
+
+const permissionCatalog = computed(() => groupPermissions(permissions.value));
 
 const selectedRoleDetails = computed(() =>
-  roleOptions.find((role) => role.value === selectedRole.value) || roleOptions[0],
+  roles.value.find((role) => rolePolicyKey(role) === selectedRoleId.value) || null,
 );
 
 const selectedRolePermissions = computed(() =>
-  new Set(getRolePermissions(draftPolicy.value, selectedRole.value)),
+  new Set(draftPolicy.value[selectedRoleId.value] || []),
 );
 
-const isSelectedRoleLocked = computed(() => selectedRole.value === "superadmin");
+const isSelectedRoleLocked = computed(() => isSuperAdminRole(selectedRoleDetails.value));
 
-const totalPermissionCount = computed(() =>
-  permissionCatalog.reduce((total, group) => total + group.permissions.length, 0),
+const totalPermissionCount = computed(() => permissions.value.length);
+const allowedCount = computed(() =>
+  isSelectedRoleLocked.value ? totalPermissionCount.value : selectedRolePermissions.value.size,
 );
-const allowedCount = computed(() => (isSelectedRoleLocked.value ? totalPermissionCount.value : selectedRolePermissions.value.size));
 
 function isPermissionEnabled(permissionKey) {
   return isSelectedRoleLocked.value || selectedRolePermissions.value.has(permissionKey);
 }
 
 function togglePermission(permissionKey) {
-  if (isSelectedRoleLocked.value) {
+  if (isSelectedRoleLocked.value || !selectedRoleId.value) {
     return;
   }
 
-  const currentPermissions = new Set(getRolePermissions(draftPolicy.value, selectedRole.value));
+  const currentPermissions = new Set(draftPolicy.value[selectedRoleId.value] || []);
   if (currentPermissions.has(permissionKey)) {
     currentPermissions.delete(permissionKey);
   } else {
@@ -47,28 +115,102 @@ function togglePermission(permissionKey) {
 
   draftPolicy.value = {
     ...draftPolicy.value,
-    [selectedRole.value]: [...currentPermissions],
+    [selectedRoleId.value]: [...currentPermissions],
   };
   statusMessage.value = "";
 }
 
-function savePolicy() {
-  authStore.setRbacPolicy(draftPolicy.value);
-  statusMessage.value = "RBAC permissions saved.";
+async function loadRbac() {
+  loadError.value = "";
+  statusMessage.value = "";
+  isLoading.value = true;
+
+  try {
+    const payload = await apiRequest("/api/rbac");
+    roles.value = Array.isArray(payload?.roles) ? payload.roles : [];
+    permissions.value = Array.isArray(payload?.permissions) ? payload.permissions : [];
+    savedPolicy.value = payload?.policy && typeof payload.policy === "object"
+      ? clonePolicy(payload.policy)
+      : buildPolicyFromRoles(roles.value);
+    draftPolicy.value = clonePolicy(savedPolicy.value);
+
+    if (!selectedRoleId.value || !roles.value.some((role) => rolePolicyKey(role) === selectedRoleId.value)) {
+      selectInitialRole(roles.value);
+    }
+  } catch (error) {
+    loadError.value = error?.message || "Failed to load RBAC permissions";
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function savePolicy() {
+  if (!selectedRoleDetails.value || isSelectedRoleLocked.value) {
+    return;
+  }
+
+  isSaving.value = true;
+  loadError.value = "";
+  statusMessage.value = "";
+
+  try {
+    const payload = await apiRequest(`/api/rbac/roles/${selectedRoleId.value}/permissions`, {
+      method: "PUT",
+      body: JSON.stringify({
+        allowed_permission_keys: draftPolicy.value[selectedRoleId.value] || [],
+      }),
+    });
+    const updatedRole = payload?.role;
+
+    if (updatedRole?.id) {
+      const updatedAllowedPermissionKeys = Array.isArray(updatedRole.allowed_permission_keys)
+        ? updatedRole.allowed_permission_keys
+        : getAllowedPermissionKeysFromMatrix(payload?.permissions);
+      const mergedRole = {
+        ...(roles.value.find((role) => rolePolicyKey(role) === rolePolicyKey(updatedRole)) || {}),
+        ...updatedRole,
+        allowed_permission_keys: updatedAllowedPermissionKeys,
+      };
+
+      roles.value = roles.value.map((role) =>
+        rolePolicyKey(role) === rolePolicyKey(mergedRole) ? mergedRole : role,
+      );
+      savedPolicy.value = {
+        ...savedPolicy.value,
+        [rolePolicyKey(mergedRole)]: [...updatedAllowedPermissionKeys],
+      };
+      draftPolicy.value = clonePolicy(savedPolicy.value);
+      authStore.syncRolePermissions(mergedRole);
+    }
+
+    statusMessage.value = "RBAC permissions saved.";
+  } catch (error) {
+    loadError.value = error?.message || "Could not save RBAC permissions";
+  } finally {
+    isSaving.value = false;
+  }
 }
 
 function resetSelectedRole() {
+  if (!selectedRoleId.value) {
+    return;
+  }
+
   draftPolicy.value = {
     ...draftPolicy.value,
-    [selectedRole.value]: [...(defaultRbacPolicy[selectedRole.value] || [])],
+    [selectedRoleId.value]: [...(savedPolicy.value[selectedRoleId.value] || [])],
   };
   statusMessage.value = "";
 }
 
 function resetAllRoles() {
-  draftPolicy.value = cloneRbacPolicy(defaultRbacPolicy);
+  draftPolicy.value = clonePolicy(savedPolicy.value);
   statusMessage.value = "";
 }
+
+onMounted(() => {
+  loadRbac();
+});
 </script>
 
 <template>
@@ -98,22 +240,31 @@ function resetAllRoles() {
             <p class="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700/70">Roles</p>
           </div>
           <div class="space-y-2 p-3">
+            <p v-if="isLoading" class="px-3 py-4 text-sm text-emerald-900/55">Loading roles…</p>
             <button
-              v-for="role in roleOptions"
-              :key="role.value"
+              v-for="role in roles"
+              :key="role.id"
               type="button"
               class="w-full rounded-2xl border px-4 py-3 text-left transition"
               :class="
-                selectedRole === role.value
+                selectedRoleId === rolePolicyKey(role)
                   ? 'border-emerald-300 bg-emerald-950 text-white shadow-lg shadow-emerald-950/15'
                   : 'border-transparent bg-emerald-50/70 text-emerald-950 hover:border-emerald-200 hover:bg-emerald-50'
               "
-              @click="selectedRole = role.value"
+              @click="selectedRoleId = rolePolicyKey(role)"
             >
-              <span class="block text-sm font-bold">{{ role.label }}</span>
+              <span class="flex items-center justify-between gap-2">
+                <span class="block text-sm font-bold">{{ role.name }}</span>
+                <span
+                  v-if="role.is_active === false"
+                  class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500"
+                >
+                  Inactive
+                </span>
+              </span>
               <span
                 class="mt-1 block text-xs leading-5"
-                :class="selectedRole === role.value ? 'text-emerald-100/75' : 'text-emerald-900/55'"
+                :class="selectedRoleId === rolePolicyKey(role) ? 'text-emerald-100/75' : 'text-emerald-900/55'"
               >
                 {{ role.description }}
               </span>
@@ -123,8 +274,8 @@ function resetAllRoles() {
 
         <div class="rounded-[24px] border border-emerald-200/70 bg-white/90 p-4">
           <p class="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700/70">Selected Role</p>
-          <h2 class="mt-2 text-xl font-bold text-emerald-950">{{ selectedRoleDetails.label }}</h2>
-          <p class="mt-2 text-sm leading-6 text-emerald-900/65">{{ selectedRoleDetails.description }}</p>
+          <h2 class="mt-2 text-xl font-bold text-emerald-950">{{ selectedRoleDetails?.name || "No role selected" }}</h2>
+          <p class="mt-2 text-sm leading-6 text-emerald-900/65">{{ selectedRoleDetails?.description || "Select a role to manage permissions." }}</p>
           <p v-if="isSelectedRoleLocked" class="mt-3 rounded-2xl bg-emerald-950 px-3 py-2 text-xs font-semibold text-lime-100">
             Super Admin always keeps full system access.
           </p>
@@ -141,7 +292,7 @@ function resetAllRoles() {
             <button
               type="button"
               class="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-55"
-              :disabled="isSelectedRoleLocked"
+              :disabled="isSelectedRoleLocked || isLoading || isSaving"
               @click="resetSelectedRole"
             >
               Reset role
@@ -149,6 +300,7 @@ function resetAllRoles() {
             <button
               type="button"
               class="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-50"
+              :disabled="isLoading || isSaving"
               @click="resetAllRoles"
             >
               Reset all
@@ -156,12 +308,17 @@ function resetAllRoles() {
             <button
               type="button"
               class="rounded-full bg-emerald-950 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:bg-emerald-900"
+              :disabled="isSelectedRoleLocked || isLoading || isSaving"
               @click="savePolicy"
             >
-              Save permissions
+              {{ isSaving ? "Saving…" : "Save permissions" }}
             </button>
           </div>
         </div>
+
+        <p v-if="loadError" class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+          {{ loadError }}
+        </p>
 
         <p v-if="statusMessage" class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
           {{ statusMessage }}
@@ -189,7 +346,7 @@ function resetAllRoles() {
                 </tr>
                 <tr
                   v-for="permission in group.permissions"
-                  :key="permission.key"
+                  :key="permission.action_key"
                   class="transition hover:bg-emerald-50/70"
                 >
                   <td class="px-4 py-3">
@@ -197,17 +354,20 @@ function resetAllRoles() {
                       <input
                         type="checkbox"
                         class="h-4 w-4 rounded border-emerald-300 text-emerald-700 focus:ring-emerald-500"
-                        :checked="isPermissionEnabled(permission.key)"
-                        :disabled="isSelectedRoleLocked"
-                        @change="togglePermission(permission.key)"
+                        :checked="isPermissionEnabled(permission.action_key)"
+                        :disabled="isSelectedRoleLocked || isLoading || isSaving"
+                        @change="togglePermission(permission.action_key)"
                       />
                       <span class="text-xs font-semibold text-emerald-900/60">
-                        {{ isPermissionEnabled(permission.key) ? "Allowed" : "Denied" }}
+                        {{ isPermissionEnabled(permission.action_key) ? "Allowed" : "Denied" }}
                       </span>
                     </label>
                   </td>
                   <td class="break-words px-4 py-3 font-semibold text-emerald-950">
-                    {{ permission.action }}
+                    {{ permission.action_name }}
+                    <span class="mt-1 block text-xs font-medium text-emerald-900/45">
+                      {{ permission.method || "LOCAL" }} {{ permission.endpoint || "—" }}
+                    </span>
                   </td>
                   <td class="break-words px-4 py-3 text-emerald-900/60">
                     {{ permission.description }}
