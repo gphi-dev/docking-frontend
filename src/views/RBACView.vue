@@ -387,7 +387,7 @@ onMounted(() => {
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div class="min-w-0">
             <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Permissions</p>
-            <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Actions and endpoints</h2>
+            <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Actions</h2>
           </div>
           <div class="flex max-w-full flex-wrap gap-2 lg:justify-end">
             <button
@@ -466,9 +466,6 @@ onMounted(() => {
                   </td>
                   <td class="break-words px-4 py-3 font-semibold text-emerald-950">
                     {{ permission.action_name }}
-                    <span class="mt-1 block text-xs font-medium text-emerald-900/45">
-                      {{ permission.method || "LOCAL" }}
-                    </span>
                   </td>
                   <td class="break-words px-4 py-3 text-emerald-900/60">
                     {{ permission.description }}
