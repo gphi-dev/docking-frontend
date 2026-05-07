@@ -11,8 +11,8 @@ const navigationLinks = [
   { to: { name: "dashboard" }, label: "Dashboard", requiredPermission: "dashboard.view" },
   { to: { name: "games" }, label: "Games", requiredPermission: "games.view" },
   { to: { name: "admins" }, label: "Admin users", requiredPermission: "admins.view" },
-  { to: { name: "rbac" }, label: "RBAC", requiredPermission: "rbac.manage" },
   { to: { name: "user-api" }, label: "Subscribers", requiredPermission: "subscribers.view" },
+  { to: { name: "rbac" }, label: "Access Control", requiredPermission: "rbac.manage" },
 ];
 
 function getNavigationRequiredPermission(navigationItem) {

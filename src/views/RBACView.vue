@@ -396,7 +396,7 @@ onMounted(() => {
                   <td class="break-words px-4 py-3 font-semibold text-emerald-950">
                     {{ permission.action_name }}
                     <span class="mt-1 block text-xs font-medium text-emerald-900/45">
-                      {{ permission.method || "LOCAL" }} {{ permission.endpoint || "—" }}
+                      {{ permission.method || "LOCAL" }}
                     </span>
                   </td>
                   <td class="break-words px-4 py-3 text-emerald-900/60">
