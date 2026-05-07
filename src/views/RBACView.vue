@@ -15,6 +15,37 @@ const loadError = ref("");
 const isLoading = ref(true);
 const isSaving = ref(false);
 const RBAC_MANAGE_PERMISSION_KEY = "rbac.manage";
+const ADMIN_VIEW_PERMISSION_KEY = "admins.view";
+const ADMIN_MUTATION_PERMISSION_KEYS = new Set([
+  "admins.create",
+  "admins.update",
+  "admins.delete",
+]);
+const GAMES_VIEW_PERMISSION_KEY = "games.view";
+const GAMES_MUTATION_PERMISSION_KEYS = new Set([
+  "games.create",
+  "games.update",
+  "games.delete",
+]);
+const SUBSCRIBERS_VIEW_PERMISSION_KEY = "subscribers.view";
+const SUBSCRIBERS_DETAIL_PERMISSION_KEYS = new Set([
+  "subscribers.view_by_game",
+  "subscribers.view_game_subscribers",
+]);
+const VIEW_DEPENDENT_PERMISSION_GROUPS = [
+  {
+    viewPermissionKey: ADMIN_VIEW_PERMISSION_KEY,
+    dependentPermissionKeys: ADMIN_MUTATION_PERMISSION_KEYS,
+  },
+  {
+    viewPermissionKey: GAMES_VIEW_PERMISSION_KEY,
+    dependentPermissionKeys: GAMES_MUTATION_PERMISSION_KEYS,
+  },
+  {
+    viewPermissionKey: SUBSCRIBERS_VIEW_PERMISSION_KEY,
+    dependentPermissionKeys: SUBSCRIBERS_DETAIL_PERMISSION_KEYS,
+  },
+];
 
 function rolePolicyKey(roleOrId) {
   const roleId = typeof roleOrId === "object" ? roleOrId?.id : roleOrId;
@@ -34,7 +65,18 @@ function isAdminRestrictedPermission(permissionKey) {
 }
 
 function sanitizeRolePermissionKeys(permissionKeys) {
-  return permissionKeys.filter((permissionKey) => permissionKey !== RBAC_MANAGE_PERMISSION_KEY);
+  const nextPermissionKeys = permissionKeys.filter((permissionKey) => permissionKey !== RBAC_MANAGE_PERMISSION_KEY);
+  const allowedPermissionKeys = new Set(nextPermissionKeys);
+
+  for (const { viewPermissionKey, dependentPermissionKeys } of VIEW_DEPENDENT_PERMISSION_GROUPS) {
+    if (!allowedPermissionKeys.has(viewPermissionKey)) {
+      for (const dependentPermissionKey of dependentPermissionKeys) {
+        allowedPermissionKeys.delete(dependentPermissionKey);
+      }
+    }
+  }
+
+  return nextPermissionKeys.filter((permissionKey) => allowedPermissionKeys.has(permissionKey));
 }
 
 function isEditablePermission(permission) {
@@ -121,11 +163,40 @@ function isPermissionEnabled(permissionKey) {
     return false;
   }
 
+  if (isViewDependentPermissionBlocked(permissionKey)) {
+    return false;
+  }
+
   return isSelectedRoleLocked.value || selectedRolePermissions.value.has(permissionKey);
 }
 
+function isViewDependentPermissionBlocked(permissionKey) {
+  if (isSelectedRoleLocked.value) {
+    return false;
+  }
+
+  const permissionGroup = VIEW_DEPENDENT_PERMISSION_GROUPS.find(({ dependentPermissionKeys }) =>
+    dependentPermissionKeys.has(permissionKey),
+  );
+
+  return Boolean(
+    permissionGroup &&
+    !selectedRolePermissions.value.has(permissionGroup.viewPermissionKey),
+  );
+}
+
+function isPermissionDisabled(permissionKey) {
+  return (
+    isSelectedRoleLocked.value ||
+    isAdminRestrictedPermission(permissionKey) ||
+    isViewDependentPermissionBlocked(permissionKey) ||
+    isLoading.value ||
+    isSaving.value
+  );
+}
+
 function togglePermission(permissionKey) {
-  if (isSelectedRoleLocked.value || !selectedRoleId.value || isAdminRestrictedPermission(permissionKey)) {
+  if (!selectedRoleId.value || isPermissionDisabled(permissionKey)) {
     return;
   }
 
@@ -138,7 +209,7 @@ function togglePermission(permissionKey) {
 
   draftPolicy.value = {
     ...draftPolicy.value,
-    [selectedRoleId.value]: [...currentPermissions],
+    [selectedRoleId.value]: sanitizeRolePermissionKeys([...currentPermissions]),
   };
   statusMessage.value = "";
 }
@@ -385,7 +456,7 @@ onMounted(() => {
                         type="checkbox"
                         class="h-4 w-4 rounded border-emerald-300 text-emerald-700 focus:ring-emerald-500"
                         :checked="isPermissionEnabled(permission.action_key)"
-                        :disabled="isSelectedRoleLocked || isAdminRestrictedPermission(permission.action_key) || isLoading || isSaving"
+                        :disabled="isPermissionDisabled(permission.action_key)"
                         @change="togglePermission(permission.action_key)"
                       />
                       <span class="text-xs font-semibold text-emerald-900/60">
