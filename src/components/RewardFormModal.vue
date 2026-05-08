@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { resolveAssetUrl } from "../api/http";
-import { createReward, updateReward } from "../api/rewards";
+import { createReward, updateReward, uploadRewardPicture } from "../api/rewards";
 
 const props = defineProps({
   open: {
@@ -33,6 +33,7 @@ const gameId = ref("");
 const picture = ref("");
 const pictureSource = ref("upload");
 const uploadedPictureData = ref("");
+const uploadedPictureFile = ref(null);
 const uploadedPictureName = ref("");
 const description = ref("");
 const prize = ref("");
@@ -41,7 +42,7 @@ const isActive = ref("1");
 const errorMessage = ref("");
 const isSubmitting = ref(false);
 const isResizingPicture = ref(false);
-const maxImageUrlLength = 2048;
+const maxPictureLength = 255;
 const maxUploadedImageDataLength = 720000;
 const maxImageDimension = 900;
 const minImageDimension = 260;
@@ -191,6 +192,7 @@ function validateForm() {
 
 function clearUploadedPicture() {
   uploadedPictureData.value = "";
+  uploadedPictureFile.value = null;
   uploadedPictureName.value = "";
 }
 
@@ -206,19 +208,15 @@ function validatePictureValue(value) {
 
   const trimmedValue = String(value).trim();
   if (trimmedValue.startsWith("data:image/")) {
-    if (trimmedValue.length > maxUploadedImageDataLength) {
-      return "Uploaded picture is too large. Please choose a smaller image.";
-    }
-
-    return "";
+    return "Uploaded picture must be saved before submitting. Please try again.";
   }
 
   if (trimmedValue.startsWith("data:") || trimmedValue.startsWith("blob:")) {
     return "Picture must be a hosted URL, backend asset path, or uploaded image file.";
   }
 
-  if (trimmedValue.length > maxImageUrlLength) {
-    return "Picture URL is too long. Please use a shorter hosted image URL or backend asset path.";
+  if (trimmedValue.length > maxPictureLength) {
+    return "Picture must be 255 characters or less.";
   }
 
   return "";
@@ -246,6 +244,19 @@ function loadImageFromSource(source, cleanup = () => {}) {
     };
     image.src = source;
   });
+}
+
+function dataUrlToBlob(dataUrl) {
+  const [metadata, base64Data] = dataUrl.split(",");
+  const contentType = metadata?.match(/data:(.*?);base64/)?.[1] || "image/jpeg";
+  const binaryString = window.atob(base64Data || "");
+  const bytes = new Uint8Array(binaryString.length);
+
+  for (let index = 0; index < binaryString.length; index += 1) {
+    bytes[index] = binaryString.charCodeAt(index);
+  }
+
+  return new Blob([bytes], { type: contentType });
 }
 
 function drawResizedImage(image, maxDimension) {
@@ -323,7 +334,13 @@ async function handlePictureFileChange(event) {
     isResizingPicture.value = true;
     clearUploadedPicture();
     const resizedImage = await resizeImageFile(file);
+    const resizedBlob = dataUrlToBlob(resizedImage.dataUrl);
     uploadedPictureData.value = resizedImage.dataUrl;
+    uploadedPictureFile.value = new File(
+      [resizedBlob],
+      file.name.replace(/\.[^.]+$/, ".jpg") || "reward-picture.jpg",
+      { type: "image/jpeg" },
+    );
     uploadedPictureName.value = `${file.name} - prepared ${resizedImage.width}x${resizedImage.height} (${formatBytes(
       resizedImage.byteLength,
     )})`;
@@ -336,9 +353,13 @@ async function handlePictureFileChange(event) {
   }
 }
 
-function getPreparedPicture() {
+async function getPreparedPicture() {
   if (pictureSource.value === "upload") {
-    return uploadedPictureData.value || null;
+    if (!uploadedPictureFile.value) {
+      return null;
+    }
+
+    return uploadRewardPicture(uploadedPictureFile.value);
   }
 
   return picture.value.trim() || null;
@@ -370,7 +391,7 @@ async function handleSubmit() {
 
   isSubmitting.value = true;
   try {
-    const preparedPicture = getPreparedPicture();
+    const preparedPicture = await getPreparedPicture();
     const pictureError = validatePictureValue(preparedPicture);
     if (pictureError) {
       errorMessage.value = pictureError;
@@ -548,9 +569,13 @@ async function handleSubmit() {
               <input
                 v-model="picture"
                 type="text"
+                maxlength="255"
                 class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
                 placeholder="https://example.com/image.jpg"
               />
+              <p class="text-xs text-slate-500">
+                Must be 255 characters or less.
+              </p>
             </div>
 
             <div v-else class="space-y-2">
@@ -566,6 +591,9 @@ async function handleSubmit() {
               />
               <p v-if="isResizingPicture" class="text-xs font-medium text-emerald-700">
                 Preparing picture...
+              </p>
+              <p v-else class="text-xs text-slate-500">
+                The uploaded file will be saved first, then its URL will be used as the reward picture.
               </p>
               <div v-if="uploadedPictureName" class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
                 <p class="truncate text-xs text-slate-600">

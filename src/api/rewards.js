@@ -1,5 +1,9 @@
 import { apiRequest } from "./http";
 
+const rewardPictureUploadEndpoint = import.meta.env.VITE_REWARD_PICTURE_UPLOAD_ENDPOINT || "/api/upload";
+const rewardPictureUploadField = import.meta.env.VITE_REWARD_PICTURE_UPLOAD_FIELD || "file";
+const maxRewardPictureLength = 255;
+
 function normalizeInteger(value, fallback = 0) {
   const numericValue = Number(value);
   return Number.isInteger(numericValue) ? numericValue : fallback;
@@ -81,6 +85,81 @@ function sanitizeRewardPayload(payload) {
     holdings: Number(payload.holdings),
     is_active: normalizeActiveValue(payload.is_active),
   };
+}
+
+function extractUploadUrl(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "";
+  }
+
+  const candidates = [
+    payload.url,
+    payload.path,
+    payload.location,
+    payload.file_url,
+    payload.fileUrl,
+    payload.image_url,
+    payload.imageUrl,
+    payload.secure_url,
+    payload.secureUrl,
+    payload.s3_url,
+    payload.s3Url,
+    payload.picture,
+    payload.key,
+    payload.data?.url,
+    payload.data?.path,
+    payload.data?.location,
+    payload.data?.file_url,
+    payload.data?.fileUrl,
+    payload.data?.image_url,
+    payload.data?.imageUrl,
+    payload.data?.secure_url,
+    payload.data?.secureUrl,
+    payload.data?.s3_url,
+    payload.data?.s3Url,
+    payload.data?.picture,
+    payload.data?.key,
+    payload.data?.file?.url,
+    payload.data?.file?.path,
+    payload.data?.file?.location,
+    payload.data?.file?.secure_url,
+    payload.data?.file?.secureUrl,
+    payload.data?.file?.key,
+    payload.file?.url,
+    payload.file?.path,
+    payload.file?.location,
+    payload.file?.secure_url,
+    payload.file?.secureUrl,
+    payload.file?.key,
+  ];
+
+  const normalizedCandidates = candidates
+    .filter((value) => typeof value === "string" && value.trim())
+    .map((value) => value.trim())
+    .filter((value) => !value.startsWith("data:") && !value.startsWith("blob:"));
+
+  return (
+    normalizedCandidates.find((value) => value.length <= maxRewardPictureLength)
+    || normalizedCandidates[0]
+    || ""
+  );
+}
+
+export async function uploadRewardPicture(file) {
+  const formData = new FormData();
+  formData.append(rewardPictureUploadField, file);
+
+  const payload = await apiRequest(rewardPictureUploadEndpoint, {
+    method: "POST",
+    body: formData,
+  });
+  const uploadedUrl = extractUploadUrl(payload);
+
+  if (!uploadedUrl) {
+    throw new Error("Picture upload response did not include a URL.");
+  }
+
+  return uploadedUrl;
 }
 
 export async function getRewardsByGameCredentials({ game_id: gameId, gamesecretkey }) {
