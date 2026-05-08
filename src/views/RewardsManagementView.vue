@@ -5,8 +5,10 @@ import {
   deleteReward,
   getRewardById,
   getRewardsByGameCredentials,
+  updateRewardProbability,
   updateRewardStatus,
 } from "../api/rewards";
+import BulkProbabilityModal from "../components/BulkProbabilityModal.vue";
 import ConfirmActionModal from "../components/ConfirmActionModal.vue";
 import RewardFormModal from "../components/RewardFormModal.vue";
 import RewardsTable from "../components/RewardsTable.vue";
@@ -17,6 +19,7 @@ const PAGE_SIZE = 10;
 
 const authStore = useAuthStore();
 const rewards = ref([]);
+const selectedGameRewards = ref([]);
 const games = ref([]);
 const gameSecretKeys = ref({});
 const pagination = ref({
@@ -39,6 +42,8 @@ const isLoadingGames = ref(false);
 const isCreateModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const isViewModalOpen = ref(false);
+const isProbabilityModalOpen = ref(false);
+const isBulkProbabilitySubmitting = ref(false);
 const selectedReward = ref(null);
 const activeRewardId = ref(null);
 const isConfirmSubmitting = ref(false);
@@ -58,6 +63,10 @@ let searchDebounceId = null;
 const canCreateRewards = computed(() => authStore.canAccess("rewards.create"));
 const canUpdateRewards = computed(() => authStore.canAccess("rewards.update"));
 const canDeleteRewards = computed(() => authStore.canAccess("rewards.delete"));
+
+const activeSelectedGameRewards = computed(() =>
+  selectedGameRewards.value.filter(isRewardActive),
+);
 
 const totalPages = computed(() => Math.max(1, Number(pagination.value.total_pages) || 1));
 
@@ -328,6 +337,7 @@ async function getRewardsForSelectedGame(gameId, page) {
 
   return {
     rewards: filteredRewards.slice(startIndex, startIndex + PAGE_SIZE),
+    allRewards: result.rewards,
     pagination: {
       page: safePage,
       limit: PAGE_SIZE,
@@ -351,6 +361,7 @@ async function loadRewards(page = pagination.value.page) {
       }
 
       rewards.value = [];
+      selectedGameRewards.value = [];
       pagination.value = {
         page: 1,
         limit: PAGE_SIZE,
@@ -366,6 +377,7 @@ async function loadRewards(page = pagination.value.page) {
     }
 
     rewards.value = result.rewards;
+    selectedGameRewards.value = result.allRewards || result.rewards;
     pagination.value = {
       ...result.pagination,
       limit: result.pagination.limit || PAGE_SIZE,
@@ -376,6 +388,7 @@ async function loadRewards(page = pagination.value.page) {
     }
 
     rewards.value = [];
+    selectedGameRewards.value = [];
     pagination.value = {
       page,
       limit: PAGE_SIZE,
@@ -440,6 +453,26 @@ function openCreateRewardModal() {
 
   selectedReward.value = null;
   isCreateModalOpen.value = true;
+}
+
+function openProbabilityModal() {
+  if (!canUpdateRewards.value) {
+    loadError.value = "You do not have permission to update reward probabilities.";
+    return;
+  }
+
+  if (!normalizeGameFilterValue(filters.game_id)) {
+    loadError.value = "Select a game before updating probabilities.";
+    return;
+  }
+
+  if (activeSelectedGameRewards.value.length === 0) {
+    loadError.value = "This game has no active rewards to update.";
+    return;
+  }
+
+  loadError.value = "";
+  isProbabilityModalOpen.value = true;
 }
 
 async function loadRewardDetails(reward, fallbackMessage) {
@@ -559,6 +592,31 @@ async function confirmPendingAction() {
   }
 }
 
+async function handleBulkProbabilitySubmit(updates) {
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return;
+  }
+
+  isBulkProbabilitySubmitting.value = true;
+  loadError.value = "";
+  statusMessage.value = "";
+
+  try {
+    await Promise.all(
+      updates.map(({ reward, probability }) =>
+        updateRewardProbability(reward.id, reward, probability),
+      ),
+    );
+    statusMessage.value = "Probabilities updated successfully.";
+    isProbabilityModalOpen.value = false;
+    await loadRewards(pagination.value.page);
+  } catch (error) {
+    loadError.value = getFriendlyError(error, "Could not update probabilities.");
+  } finally {
+    isBulkProbabilitySubmitting.value = false;
+  }
+}
+
 function handleRewardCreated() {
   statusMessage.value = "Reward created successfully.";
   loadRewards(1);
@@ -600,7 +658,7 @@ onBeforeUnmount(() => {
           <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">Rewards Console</p>
           <h1 class="mt-3 text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">Rewards Management</h1>
           <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
-            Manage game prizes, holdings, and active status while backend probability calculations stay read-only.
+            Manage game prizes, holdings, active status, and game-scoped probability distributions.
           </p>
         </div>
 
@@ -609,6 +667,15 @@ onBeforeUnmount(() => {
             <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Total Rewards</p>
             <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ pagination.total }}</p>
           </div>
+          <button
+            v-if="canUpdateRewards"
+            type="button"
+            class="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white px-5 py-3 text-sm font-semibold text-emerald-900 shadow-lg shadow-emerald-950/10 transition hover:-translate-y-0.5 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="activeSelectedGameRewards.length === 0"
+            @click="openProbabilityModal"
+          >
+            Update probabilities
+          </button>
           <button
             v-if="canCreateRewards"
             type="button"
@@ -763,6 +830,15 @@ onBeforeUnmount(() => {
       :reward="selectedReward"
       :game-name="selectedRewardGameName"
       @close="isViewModalOpen = false"
+    />
+
+    <BulkProbabilityModal
+      :open="isProbabilityModalOpen"
+      :rewards="selectedGameRewards"
+      :game-label="selectedGameFilterLabel"
+      :is-submitting="isBulkProbabilitySubmitting"
+      @close="isProbabilityModalOpen = false"
+      @submit="handleBulkProbabilitySubmit"
     />
 
     <ConfirmActionModal

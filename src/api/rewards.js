@@ -118,6 +118,16 @@ export function updateReward(id, payload) {
   });
 }
 
+export function updateRewardProbability(id, reward, probability) {
+  return apiRequest(`/api/rewards/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      ...sanitizeRewardPayload(reward),
+      probability: Number(probability),
+    }),
+  });
+}
+
 export function updateRewardStatus(id, isActive) {
   return apiRequest(`/api/rewards/${id}/status`, {
     method: "PATCH",
