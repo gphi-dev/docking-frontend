@@ -26,6 +26,7 @@ const gamesecretkey = ref("");
 const gameUrl = ref("");
 const description = ref("");
 const isLandscape = ref("false");
+const isMobile = ref("false");
 const imageUrl = ref("");
 const backgroundUrl = ref("");
 const imageSource = ref("url");
@@ -79,6 +80,7 @@ function resetForm() {
   gameUrl.value = "";
   description.value = "";
   isLandscape.value = "false";
+  isMobile.value = "false";
   imageUrl.value = "";
   backgroundUrl.value = "";
   imageSource.value = "upload";
@@ -100,6 +102,7 @@ function populateForm() {
   gameUrl.value = props.game?.game_url ?? "";
   description.value = props.game?.description ?? "";
   isLandscape.value = getBooleanSelectValue(props.game?.is_landscape);
+  isMobile.value = getBooleanSelectValue(props.game?.is_mobile);
   imageUrl.value = props.game?.image_url ?? "";
   backgroundUrl.value = props.game?.background_url ?? "";
   imageSource.value = "url";
@@ -495,6 +498,7 @@ async function handleSubmit() {
       game_url: gameUrl.value.trim() || null,
       description: description.value.trim() || null,
       is_landscape: isLandscape.value === "true",
+      is_mobile: isMobile.value === "true" ? "True" : "False",
       image_url: resolvedImageUrl,
       background_url: resolvedBackgroundUrl,
     };
@@ -634,6 +638,19 @@ async function handleSubmit() {
                   <option value="false">False</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Mobile Game ( True / False )
+              </label>
+              <select
+                v-model="isMobile"
+                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-sky-500/30 focus:border-sky-500 focus:ring-2"
+              >
+                <option value="true">True</option>
+                <option value="false">False</option>
+              </select>
             </div>
 
             <div>

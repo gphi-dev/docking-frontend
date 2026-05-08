@@ -60,6 +60,14 @@ function getGameUrlLabel(game) {
   return gameUrl || "—";
 }
 
+function isTruthy(value) {
+  return value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";
+}
+
+function getMobileLabel(game) {
+  return isTruthy(game?.is_mobile) ? "Mobile" : "Web";
+}
+
 function getGameCardTheme(index) {
   const themes = [
     {
@@ -296,6 +304,16 @@ onMounted(() => {
                 :class="getGameCardTheme(index).badge"
               >
                 Game ID: {{ game.game_id || "—" }}
+              </div>
+              <div
+                class="mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em]"
+                :class="
+                  isTruthy(game.is_mobile)
+                    ? 'bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-300/60'
+                    : 'bg-white/80 text-emerald-900 ring-1 ring-inset ring-emerald-200'
+                "
+              >
+                {{ getMobileLabel(game) }}
               </div>
               <p class="mt-3 truncate text-xl font-bold tracking-tight text-white">
                 {{ game.name }}

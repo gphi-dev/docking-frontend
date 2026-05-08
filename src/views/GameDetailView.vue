@@ -55,6 +55,14 @@ function getGameUrlLabel(gameRecord) {
   return gameUrl || "—";
 }
 
+function isTruthy(value) {
+  return value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";
+}
+
+function getMobileLabel(gameRecord) {
+  return isTruthy(gameRecord?.is_mobile) ? "Mobile" : "Web";
+}
+
 // async function loadGame() {
 //   const gamePayload = await apiRequest(`/api/games/${numericGameId.value}`);
 //   game.value = gamePayload;
@@ -250,6 +258,16 @@ watch(
             </h1>
             <div class="inline-flex rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
               Game ID: {{ game.game_id || "—" }}
+            </div>
+            <div
+              class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] ring-1 ring-inset"
+              :class="
+                isTruthy(game.is_mobile)
+                  ? 'bg-sky-100 text-sky-800 ring-sky-300/60'
+                  : 'bg-white/70 text-emerald-900 ring-emerald-200'
+              "
+            >
+              {{ getMobileLabel(game) }}
             </div>
             <p
               class="max-w-2xl truncate rounded-xl bg-white/65 px-3 py-2 text-xs font-semibold text-emerald-900/65 ring-1 ring-inset ring-emerald-100"

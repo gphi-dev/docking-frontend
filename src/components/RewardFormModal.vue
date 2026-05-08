@@ -31,12 +31,22 @@ const emit = defineEmits(["close", "created", "updated"]);
 
 const gameId = ref("");
 const picture = ref("");
+const pictureSource = ref("upload");
+const uploadedPictureData = ref("");
+const uploadedPictureName = ref("");
 const description = ref("");
 const prize = ref("");
 const holdings = ref("");
 const isActive = ref("1");
 const errorMessage = ref("");
 const isSubmitting = ref(false);
+const isResizingPicture = ref(false);
+const maxImageUrlLength = 2048;
+const maxUploadedImageDataLength = 720000;
+const maxImageDimension = 900;
+const minImageDimension = 260;
+const initialImageQuality = 0.82;
+const minImageQuality = 0.42;
 
 const isEditMode = computed(() => props.mode === "edit");
 
@@ -61,7 +71,13 @@ const selectedGameOptionExists = computed(() =>
   gameOptions.value.some((option) => option.value === String(gameId.value)),
 );
 
-const previewPictureSrc = computed(() => resolveAssetUrl(picture.value.trim()));
+const previewPictureSrc = computed(() => {
+  if (pictureSource.value === "upload") {
+    return uploadedPictureData.value || "";
+  }
+
+  return resolveAssetUrl(picture.value.trim());
+});
 
 function isRewardActive(reward) {
   return reward?.is_active === 1 || reward?.is_active === true || reward?.is_active === "1";
@@ -88,12 +104,15 @@ function formatProbability(reward) {
 function resetForm() {
   gameId.value = "";
   picture.value = "";
+  pictureSource.value = "upload";
+  clearUploadedPicture();
   description.value = "";
   prize.value = "";
   holdings.value = "";
   isActive.value = "1";
   errorMessage.value = "";
   isSubmitting.value = false;
+  isResizingPicture.value = false;
 }
 
 function populateForm() {
@@ -101,6 +120,8 @@ function populateForm() {
     ? String(props.reward.game_id)
     : "";
   picture.value = props.reward?.picture ?? "";
+  pictureSource.value = "url";
+  clearUploadedPicture();
   description.value = props.reward?.description ?? "";
   prize.value = props.reward?.prize ?? "";
   holdings.value = props.reward?.holdings !== undefined && props.reward?.holdings !== null
@@ -109,6 +130,7 @@ function populateForm() {
   isActive.value = isRewardActive(props.reward) ? "1" : "0";
   errorMessage.value = "";
   isSubmitting.value = false;
+  isResizingPicture.value = false;
 }
 
 watch(
@@ -167,10 +189,165 @@ function validateForm() {
   return "";
 }
 
-function buildPayload() {
+function clearUploadedPicture() {
+  uploadedPictureData.value = "";
+  uploadedPictureName.value = "";
+}
+
+function handlePictureSourceChange(source) {
+  pictureSource.value = source;
+  errorMessage.value = "";
+}
+
+function validatePictureValue(value) {
+  if (!value) {
+    return "";
+  }
+
+  const trimmedValue = String(value).trim();
+  if (trimmedValue.startsWith("data:image/")) {
+    if (trimmedValue.length > maxUploadedImageDataLength) {
+      return "Uploaded picture is too large. Please choose a smaller image.";
+    }
+
+    return "";
+  }
+
+  if (trimmedValue.startsWith("data:") || trimmedValue.startsWith("blob:")) {
+    return "Picture must be a hosted URL, backend asset path, or uploaded image file.";
+  }
+
+  if (trimmedValue.length > maxImageUrlLength) {
+    return "Picture URL is too long. Please use a shorter hosted image URL or backend asset path.";
+  }
+
+  return "";
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 KB";
+  }
+
+  return `${Math.ceil(bytes / 1024)} KB`;
+}
+
+function loadImageFromSource(source, cleanup = () => {}) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => {
+      cleanup();
+      resolve(image);
+    };
+    image.onerror = () => {
+      cleanup();
+      reject(new Error("Could not load the selected image"));
+    };
+    image.src = source;
+  });
+}
+
+function drawResizedImage(image, maxDimension) {
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const scale = Math.min(1, maxDimension / Math.max(width, height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Could not prepare picture upload");
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return canvas;
+}
+
+async function resizeLoadedImage(image) {
+  let dimension = maxImageDimension;
+  let quality = initialImageQuality;
+
+  while (dimension >= minImageDimension) {
+    const canvas = drawResizedImage(image, dimension);
+
+    while (quality >= minImageQuality) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      if (dataUrl.length <= maxUploadedImageDataLength) {
+        return {
+          dataUrl,
+          width: canvas.width,
+          height: canvas.height,
+          byteLength: Math.ceil((dataUrl.length * 3) / 4),
+        };
+      }
+
+      quality -= 0.08;
+    }
+
+    dimension = Math.floor(dimension * 0.82);
+    quality = initialImageQuality;
+  }
+
+  throw new Error("Picture is too large to upload. Please choose a smaller image.");
+}
+
+async function resizeImageFile(file) {
+  const objectUrl = URL.createObjectURL(file);
+  const image = await loadImageFromSource(objectUrl, () => URL.revokeObjectURL(objectUrl));
+  return resizeLoadedImage(image);
+}
+
+async function handlePictureFileChange(event) {
+  const [file] = event.target.files || [];
+
+  if (!file) {
+    clearUploadedPicture();
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    clearUploadedPicture();
+    errorMessage.value = "Please choose a valid picture file";
+    event.target.value = "";
+    return;
+  }
+
+  errorMessage.value = "";
+
+  try {
+    isResizingPicture.value = true;
+    clearUploadedPicture();
+    const resizedImage = await resizeImageFile(file);
+    uploadedPictureData.value = resizedImage.dataUrl;
+    uploadedPictureName.value = `${file.name} - prepared ${resizedImage.width}x${resizedImage.height} (${formatBytes(
+      resizedImage.byteLength,
+    )})`;
+  } catch (error) {
+    clearUploadedPicture();
+    event.target.value = "";
+    errorMessage.value = error?.message || "Could not prepare the selected picture";
+  } finally {
+    isResizingPicture.value = false;
+  }
+}
+
+function getPreparedPicture() {
+  if (pictureSource.value === "upload") {
+    return uploadedPictureData.value || null;
+  }
+
+  return picture.value.trim() || null;
+}
+
+function buildPayload(preparedPicture) {
   return {
     game_id: Number(gameId.value),
-    picture: picture.value.trim() || null,
+    picture: preparedPicture,
     description: description.value.trim() || null,
     prize: prize.value.trim(),
     holdings: Number(holdings.value),
@@ -193,7 +370,15 @@ async function handleSubmit() {
 
   isSubmitting.value = true;
   try {
-    const payload = buildPayload();
+    const preparedPicture = getPreparedPicture();
+    const pictureError = validatePictureValue(preparedPicture);
+    if (pictureError) {
+      errorMessage.value = pictureError;
+      isSubmitting.value = false;
+      return;
+    }
+
+    const payload = buildPayload(preparedPicture);
     const savedReward = isEditMode.value
       ? await updateReward(props.reward.id, payload)
       : await createReward(payload);
@@ -326,16 +511,76 @@ async function handleSubmit() {
             </div>
           </div>
 
-          <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Picture URL
-            </label>
-            <input
-              v-model="picture"
-              type="text"
-              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
-              placeholder="https://example.com/image.jpg"
-            />
+          <div class="space-y-3">
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                class="rounded-lg border px-3 py-2 text-sm font-semibold transition"
+                :class="
+                  pictureSource === 'url'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                "
+                :disabled="isSubmitting || isResizingPicture"
+                @click="handlePictureSourceChange('url')"
+              >
+                URL / Path
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border px-3 py-2 text-sm font-semibold transition"
+                :class="
+                  pictureSource === 'upload'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                "
+                :disabled="isSubmitting || isResizingPicture"
+                @click="handlePictureSourceChange('upload')"
+              >
+                Upload File
+              </button>
+            </div>
+
+            <div v-if="pictureSource === 'url'" class="space-y-2">
+              <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Picture URL or Asset Path
+              </label>
+              <input
+                v-model="picture"
+                type="text"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+
+            <div v-else class="space-y-2">
+              <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Upload Reward Picture File
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                class="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-emerald-700"
+                :disabled="isSubmitting || isResizingPicture"
+                @change="handlePictureFileChange"
+              />
+              <p v-if="isResizingPicture" class="text-xs font-medium text-emerald-700">
+                Preparing picture...
+              </p>
+              <div v-if="uploadedPictureName" class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+                <p class="truncate text-xs text-slate-600">
+                  {{ uploadedPictureName }}
+                </p>
+                <button
+                  type="button"
+                  class="shrink-0 text-xs font-semibold text-rose-600 transition hover:text-rose-700"
+                  :disabled="isSubmitting || isResizingPicture"
+                  @click="clearUploadedPicture"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
           </div>
 
           <div v-if="previewPictureSrc" class="space-y-2">
@@ -387,9 +632,9 @@ async function handleSubmit() {
             <button
               type="submit"
               class="rounded-lg bg-emerald-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="isSubmitting || loadingGames"
+              :disabled="isSubmitting || loadingGames || isResizingPicture"
             >
-              {{ isSubmitting ? "Saving..." : isEditMode ? "Update reward" : "Create reward" }}
+              {{ isSubmitting ? "Saving..." : isResizingPicture ? "Preparing..." : isEditMode ? "Update reward" : "Create reward" }}
             </button>
           </div>
         </form>
