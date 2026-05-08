@@ -10,6 +10,7 @@ const router = useRouter();
 const navigationLinks = [
   { to: { name: "dashboard" }, label: "Dashboard", requiredPermission: "dashboard.view" },
   { to: { name: "games" }, label: "Games", requiredPermission: "games.view" },
+  { to: { name: "rewards" }, label: "Rewards", requiredPermission: "rewards.view" },
   { to: { name: "admins" }, label: "Admin users", requiredPermission: "admins.view" },
   { to: { name: "user-api" }, label: "Subscribers", requiredPermission: "subscribers.view" },
   { to: { name: "rbac" }, label: "Access Control", requiredPermission: "rbac.manage" },

@@ -5,6 +5,7 @@ import MainLayout from "../layouts/MainLayout.vue";
 import DashboardView from "../views/DashboardView.vue";
 import GamesListView from "../views/GamesListView.vue";
 import GameDetailView from "../views/GameDetailView.vue";
+import RewardsManagementView from "../views/RewardsManagementView.vue";
 import AdminUsersView from "../views/AdminUsersView.vue";
 import UserAPIView from "../views/UserAPIView.vue";
 import RBACView from "../views/RBACView.vue";
@@ -12,6 +13,7 @@ import RBACView from "../views/RBACView.vue";
 const accessFallbackRoutes = [
   { name: "dashboard", requiredPermission: "dashboard.view" },
   { name: "games", requiredPermission: "games.view" },
+  { name: "rewards", requiredPermission: "rewards.view" },
   { name: "admins", requiredPermission: "admins.view" },
   { name: "rbac", requiredPermission: "rbac.manage" },
   { name: "user-api", requiredPermission: "subscribers.view" },
@@ -70,6 +72,13 @@ export const router = createRouter({
           component: GameDetailView,
           props: true,
           meta: { requiredPermission: "games.view" },
+        },
+        {
+          path: "rewards",
+          alias: "/admin/rewards",
+          name: "rewards",
+          component: RewardsManagementView,
+          meta: { requiredPermission: "rewards.view" },
         },
         {
           path: "admins",

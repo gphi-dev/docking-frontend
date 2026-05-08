@@ -60,6 +60,39 @@ export const permissionCatalog = [
     ],
   },
   {
+    group: "Rewards",
+    permissions: [
+      {
+        key: "rewards.view",
+        action: "View rewards",
+        method: "GET",
+        endpoint: "/api/rewards",
+        description: "List rewards and open reward details.",
+      },
+      {
+        key: "rewards.create",
+        action: "Create rewards",
+        method: "POST",
+        endpoint: "/api/rewards",
+        description: "Create new reward records.",
+      },
+      {
+        key: "rewards.update",
+        action: "Update rewards",
+        method: "PUT/PATCH",
+        endpoint: "/api/rewards/:id",
+        description: "Edit rewards and activate or deactivate reward records.",
+      },
+      {
+        key: "rewards.delete",
+        action: "Delete rewards",
+        method: "DELETE",
+        endpoint: "/api/rewards/:id",
+        description: "Delete reward records.",
+      },
+    ],
+  },
+  {
     group: "Admin Users",
     permissions: [
       {
@@ -143,6 +176,9 @@ export const defaultRbacPolicy = {
     "games.view",
     "games.create",
     "games.update",
+    "rewards.view",
+    "rewards.create",
+    "rewards.update",
     "subscribers.view",
     "subscribers.view_by_game",
     "subscribers.view_game_subscribers",

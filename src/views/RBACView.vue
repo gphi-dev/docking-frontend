@@ -27,6 +27,12 @@ const GAMES_MUTATION_PERMISSION_KEYS = new Set([
   "games.update",
   "games.delete",
 ]);
+const REWARDS_VIEW_PERMISSION_KEY = "rewards.view";
+const REWARDS_MUTATION_PERMISSION_KEYS = new Set([
+  "rewards.create",
+  "rewards.update",
+  "rewards.delete",
+]);
 const SUBSCRIBERS_VIEW_PERMISSION_KEY = "subscribers.view";
 const SUBSCRIBERS_DETAIL_PERMISSION_KEYS = new Set([
   "subscribers.view_by_game",
@@ -40,6 +46,10 @@ const VIEW_DEPENDENT_PERMISSION_GROUPS = [
   {
     viewPermissionKey: GAMES_VIEW_PERMISSION_KEY,
     dependentPermissionKeys: GAMES_MUTATION_PERMISSION_KEYS,
+  },
+  {
+    viewPermissionKey: REWARDS_VIEW_PERMISSION_KEY,
+    dependentPermissionKeys: REWARDS_MUTATION_PERMISSION_KEYS,
   },
   {
     viewPermissionKey: SUBSCRIBERS_VIEW_PERMISSION_KEY,
