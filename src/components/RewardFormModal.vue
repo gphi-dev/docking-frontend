@@ -43,16 +43,15 @@ const isEditMode = computed(() => props.mode === "edit");
 const gameOptions = computed(() =>
   props.games
     .map((game) => {
-      const value = game?.game_id ?? game?.id;
+      const value = getGameOptionValue(game);
       if (value === undefined || value === null || String(value).trim() === "") {
         return null;
       }
 
       const gameName = game?.name || game?.title || `Game ${value}`;
-      const publicGameId = game?.game_id ?? value;
       return {
         value: String(value),
-        label: `${gameName} (ID ${publicGameId})`,
+        label: `${gameName} (ID ${value})`,
       };
     })
     .filter(Boolean),
@@ -66,6 +65,10 @@ const previewPictureSrc = computed(() => resolveAssetUrl(picture.value.trim()));
 
 function isRewardActive(reward) {
   return reward?.is_active === 1 || reward?.is_active === true || reward?.is_active === "1";
+}
+
+function getGameOptionValue(game) {
+  return game?.game_id ?? game?.gameId ?? game?.gameid ?? game?.public_game_id ?? game?.publicGameId ?? game?.id;
 }
 
 function formatProbability(reward) {

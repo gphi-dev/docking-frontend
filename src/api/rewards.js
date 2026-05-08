@@ -1,20 +1,5 @@
 import { apiRequest } from "./http";
 
-function buildQueryString(params = {}) {
-  const searchParams = new URLSearchParams();
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === "") {
-      return;
-    }
-
-    searchParams.set(key, String(value));
-  });
-
-  const queryString = searchParams.toString();
-  return queryString ? `?${queryString}` : "";
-}
-
 function normalizeInteger(value, fallback = 0) {
   const numericValue = Number(value);
   return Number.isInteger(numericValue) ? numericValue : fallback;
@@ -98,12 +83,18 @@ function sanitizeRewardPayload(payload) {
   };
 }
 
-export async function getRewards(params = {}) {
-  const payload = await apiRequest(`/api/rewards${buildQueryString(params)}`);
+export async function getRewardsByGameCredentials({ game_id: gameId, gamesecretkey }) {
+  const payload = await apiRequest("/api/rewards/", {
+    method: "POST",
+    body: JSON.stringify({
+      game_id: String(gameId),
+      gamesecretkey: String(gamesecretkey || ""),
+    }),
+  });
 
   return {
     rewards: extractRewardsList(payload),
-    pagination: extractRewardsPagination(payload, params),
+    pagination: extractRewardsPagination(payload, { page: 1, limit: 10 }),
     raw: payload,
   };
 }

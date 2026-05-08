@@ -4,7 +4,7 @@ import { apiRequest } from "../api/http";
 import {
   deleteReward,
   getRewardById,
-  getRewards,
+  getRewardsByGameCredentials,
   updateRewardStatus,
 } from "../api/rewards";
 import ConfirmActionModal from "../components/ConfirmActionModal.vue";
@@ -18,6 +18,7 @@ const PAGE_SIZE = 10;
 const authStore = useAuthStore();
 const rewards = ref([]);
 const games = ref([]);
+const gameSecretKeys = ref({});
 const pagination = ref({
   page: 1,
   limit: PAGE_SIZE,
@@ -80,16 +81,24 @@ const gameOptions = computed(() =>
 
       return {
         value,
-        label: `${game?.name || game?.title || `Game ${value}`} (ID ${game?.game_id ?? value})`,
+        label: `${game?.name || game?.title || `Game ${value}`} (ID ${value})`,
       };
     })
     .filter(Boolean),
 );
 
+const selectedGameFilterLabel = computed(() =>
+  gameOptions.value.find((gameOption) => gameOption.value === filters.game_id)?.label || "",
+);
+
+const rewardsSectionTitle = computed(() =>
+  selectedGameFilterLabel.value ? `Rewards for ${selectedGameFilterLabel.value}` : "Select a game",
+);
+
 const selectedRewardGameName = computed(() => getGameName(selectedReward.value));
 
 function getGameOptionValue(game) {
-  const value = game?.game_id ?? game?.id;
+  const value = game?.game_id ?? game?.gameId ?? game?.gameid ?? game?.public_game_id ?? game?.publicGameId ?? game?.id;
   if (value === undefined || value === null || String(value).trim() === "") {
     return "";
   }
@@ -121,6 +130,18 @@ function extractGamesList(payload) {
   return [];
 }
 
+function extractGameRecord(payload) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  if (payload.data && !Array.isArray(payload.data)) {
+    return payload.data.game || payload.data;
+  }
+
+  return payload.game || payload;
+}
+
 function isRewardActive(reward) {
   return reward?.is_active === 1 || reward?.is_active === true || reward?.is_active === "1";
 }
@@ -137,14 +158,111 @@ function getFriendlyError(error, fallbackMessage) {
   return error?.message || fallbackMessage;
 }
 
-function buildRewardQueryParams(page = pagination.value.page) {
-  return {
-    page,
-    limit: PAGE_SIZE,
-    game_id: filters.game_id || undefined,
-    is_active: filters.is_active === "" ? undefined : Number(filters.is_active),
-    search: filters.search || undefined,
-  };
+function normalizeGameFilterValue(value) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) {
+    return "";
+  }
+
+  const directPublicMatch = games.value.find((game) => getGameOptionValue(game) === rawValue);
+  if (directPublicMatch) {
+    return rawValue;
+  }
+
+  const internalIdMatch = games.value.find((game) => String(game?.id ?? "") === rawValue);
+  return internalIdMatch ? getGameOptionValue(internalIdMatch) : rawValue;
+}
+
+function getGameSecretKey(game) {
+  return String(
+    game?.game_secret_key
+      || game?.gamesecretkey
+      || game?.gameSecretKey
+      || game?.secret_key
+      || game?.secretKey
+      || "",
+  ).trim();
+}
+
+function findGameByPublicId(gameId) {
+  const normalizedGameId = normalizeGameFilterValue(gameId);
+  return games.value.find((game) => getGameOptionValue(game) === normalizedGameId) || null;
+}
+
+function getGameDetailCandidates(game, gameId) {
+  return [
+    game?.slug,
+    game?.id,
+    getGameOptionValue(game),
+    gameId,
+  ]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index);
+}
+
+function mergeGameRecord(gameId, gameRecord) {
+  if (!gameRecord || typeof gameRecord !== "object") {
+    return;
+  }
+
+  const normalizedGameId = normalizeGameFilterValue(gameId);
+  const nextGames = [...games.value];
+  const existingGameIndex = nextGames.findIndex((game) => getGameOptionValue(game) === normalizedGameId);
+  if (existingGameIndex >= 0) {
+    nextGames[existingGameIndex] = {
+      ...nextGames[existingGameIndex],
+      ...gameRecord,
+    };
+  } else {
+    nextGames.push(gameRecord);
+  }
+  games.value = nextGames;
+}
+
+async function resolveGameSecretKey(gameId) {
+  const normalizedGameId = normalizeGameFilterValue(gameId);
+  if (gameSecretKeys.value[normalizedGameId]) {
+    return gameSecretKeys.value[normalizedGameId];
+  }
+
+  const game = findGameByPublicId(normalizedGameId);
+  const directSecretKey = getGameSecretKey(game);
+  if (directSecretKey) {
+    gameSecretKeys.value = {
+      ...gameSecretKeys.value,
+      [normalizedGameId]: directSecretKey,
+    };
+    return directSecretKey;
+  }
+
+  let lastError = null;
+  for (const candidate of getGameDetailCandidates(game, normalizedGameId)) {
+    try {
+      const payload = await apiRequest(`/api/games/${candidate}`);
+      const gameRecord = extractGameRecord(payload);
+      const secretKey = getGameSecretKey(gameRecord);
+      if (secretKey) {
+        mergeGameRecord(normalizedGameId, gameRecord);
+        gameSecretKeys.value = {
+          ...gameSecretKeys.value,
+          [normalizedGameId]: secretKey,
+        };
+        return secretKey;
+      }
+    } catch (error) {
+      lastError = error;
+      if (error?.status !== 404) {
+        throw error;
+      }
+    }
+  }
+
+  if (lastError && lastError.status !== 404) {
+    throw lastError;
+  }
+
+  throw new Error("Game secret key is missing for the selected game.");
 }
 
 function getGameName(reward) {
@@ -171,6 +289,9 @@ async function loadGames() {
   try {
     const payload = await apiRequest("/api/games");
     games.value = extractGamesList(payload);
+    if (!normalizeGameFilterValue(filters.game_id) && gameOptions.value.length > 0) {
+      filters.game_id = gameOptions.value[0].value;
+    }
   } catch (error) {
     games.value = [];
     gameLoadError.value = error?.message || "Failed to load games for rewards.";
@@ -179,13 +300,67 @@ async function loadGames() {
   }
 }
 
+function filterGameRewards(rewardRecords) {
+  const searchValue = filters.search.trim().toLowerCase();
+
+  return rewardRecords.filter((reward) => {
+    const matchesStatus = filters.is_active === ""
+      ? true
+      : String(isRewardActive(reward) ? 1 : 0) === String(filters.is_active);
+    const searchableText = `${reward?.prize || ""} ${reward?.description || ""}`.toLowerCase();
+    const matchesSearch = searchValue ? searchableText.includes(searchValue) : true;
+
+    return matchesStatus && matchesSearch;
+  });
+}
+
+async function getRewardsForSelectedGame(gameId, page) {
+  const gamesecretkey = await resolveGameSecretKey(gameId);
+  const result = await getRewardsByGameCredentials({
+    game_id: gameId,
+    gamesecretkey,
+  });
+  const filteredRewards = filterGameRewards(result.rewards);
+  const total = filteredRewards.length;
+  const totalPagesForGame = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPagesForGame);
+  const startIndex = (safePage - 1) * PAGE_SIZE;
+
+  return {
+    rewards: filteredRewards.slice(startIndex, startIndex + PAGE_SIZE),
+    pagination: {
+      page: safePage,
+      limit: PAGE_SIZE,
+      total,
+      total_pages: totalPagesForGame,
+    },
+    raw: result.raw,
+  };
+}
+
 async function loadRewards(page = pagination.value.page) {
   const requestId = ++rewardsRequestId;
   loadError.value = "";
   isLoadingRewards.value = true;
 
   try {
-    const result = await getRewards(buildRewardQueryParams(page));
+    const normalizedGameId = normalizeGameFilterValue(filters.game_id);
+    if (!normalizedGameId) {
+      if (requestId !== rewardsRequestId) {
+        return;
+      }
+
+      rewards.value = [];
+      pagination.value = {
+        page: 1,
+        limit: PAGE_SIZE,
+        total: 0,
+        total_pages: 1,
+      };
+      return;
+    }
+
+    const result = await getRewardsForSelectedGame(normalizedGameId, page);
     if (requestId !== rewardsRequestId) {
       return;
     }
@@ -207,6 +382,11 @@ async function loadRewards(page = pagination.value.page) {
       total: 0,
       total_pages: 1,
     };
+
+    if (error?.status === 404) {
+      return;
+    }
+
     loadError.value = getFriendlyError(error, "Failed to load rewards.");
   } finally {
     if (requestId === rewardsRequestId) {
@@ -220,13 +400,23 @@ function applyFilters() {
   loadRewards(1);
 }
 
+function handleGameFilterChange(event) {
+  filters.game_id = normalizeGameFilterValue(event?.target?.value);
+  applyFilters();
+}
+
+function handleStatusFilterChange(event) {
+  filters.is_active = String(event?.target?.value ?? "");
+  applyFilters();
+}
+
 function resetFilters() {
   if (searchDebounceId) {
     clearTimeout(searchDebounceId);
     searchDebounceId = null;
   }
 
-  filters.game_id = "";
+  filters.game_id = gameOptions.value[0]?.value || "";
   filters.is_active = "";
   filters.search = "";
   searchText.value = "";
@@ -390,8 +580,8 @@ watch(searchText, (nextSearchText) => {
   }, 350);
 });
 
-onMounted(() => {
-  loadGames();
+onMounted(async () => {
+  await loadGames();
   loadRewards(1);
 });
 
@@ -438,9 +628,10 @@ onBeforeUnmount(() => {
           v-model="filters.game_id"
           class="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-950 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
           :disabled="isLoadingGames"
-          @change="applyFilters"
+          required
+          @change="handleGameFilterChange"
         >
-          <option value="">{{ isLoadingGames ? "Loading games..." : "All games" }}</option>
+          <option value="" disabled>{{ isLoadingGames ? "Loading games..." : "Select game" }}</option>
           <option
             v-for="gameOption in gameOptions"
             :key="gameOption.value"
@@ -456,7 +647,7 @@ onBeforeUnmount(() => {
         <select
           v-model="filters.is_active"
           class="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-950 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
-          @change="applyFilters"
+          @change="handleStatusFilterChange"
         >
           <option value="">All</option>
           <option value="1">Active</option>
@@ -499,7 +690,7 @@ onBeforeUnmount(() => {
       <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Reward Directory</p>
-          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">All rewards</h2>
+          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ rewardsSectionTitle }}</h2>
         </div>
         <p class="text-sm font-medium text-emerald-900/55">{{ rewardsRangeLabel }}</p>
       </div>
