@@ -137,7 +137,7 @@ function isRewardBusy(reward) {
             <th class="px-4 py-3">Probability</th>
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3">Created At</th>
-            <th class="px-4 py-3 text-right">Actions</th>
+            <th class="w-[17rem] min-w-[17rem] px-4 py-3 text-center">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-emerald-100/80">
@@ -210,11 +210,11 @@ function isRewardBusy(reward) {
             <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
               {{ formatDateTime(reward.created_at) }}
             </td>
-            <td class="px-4 py-3 text-right">
-              <div class="flex flex-wrap justify-end gap-2">
+            <td class="w-[17rem] min-w-[17rem] px-4 py-3">
+              <div class="ml-auto grid w-[15rem] grid-cols-2 gap-2">
                 <button
                   type="button"
-                  class="rounded-full border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="inline-flex h-9 items-center justify-center rounded-xl border border-emerald-200 bg-white px-3 text-xs font-semibold text-emerald-800 shadow-sm ring-1 ring-inset ring-white/70 transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
                   :disabled="isRewardBusy(reward)"
                   @click="emit('view', reward)"
                 >
@@ -223,7 +223,7 @@ function isRewardBusy(reward) {
                 <button
                   v-if="canUpdate"
                   type="button"
-                  class="rounded-full border border-sky-200 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="inline-flex h-9 items-center justify-center rounded-xl border border-sky-200 bg-white px-3 text-xs font-semibold text-sky-700 shadow-sm ring-1 ring-inset ring-white/70 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
                   :disabled="isRewardBusy(reward)"
                   @click="emit('edit', reward)"
                 >
@@ -232,11 +232,11 @@ function isRewardBusy(reward) {
                 <button
                   v-if="canUpdate"
                   type="button"
-                  class="rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                  class="inline-flex h-9 items-center justify-center rounded-xl border bg-white px-3 text-xs font-semibold shadow-sm ring-1 ring-inset ring-white/70 transition disabled:cursor-not-allowed disabled:opacity-60"
                   :class="
                     isRewardActive(reward)
-                      ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                      : 'border-lime-200 text-lime-800 hover:bg-lime-50'
+                      ? 'border-amber-200 text-amber-700 hover:border-amber-300 hover:bg-amber-50'
+                      : 'border-lime-200 text-lime-800 hover:border-lime-300 hover:bg-lime-50'
                   "
                   :disabled="isRewardBusy(reward)"
                   @click="emit('status', reward)"
@@ -246,7 +246,7 @@ function isRewardBusy(reward) {
                 <button
                   v-if="canDelete"
                   type="button"
-                  class="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 shadow-sm ring-1 ring-inset ring-white/70 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                   :disabled="isRewardBusy(reward)"
                   @click="emit('delete', reward)"
                 >
