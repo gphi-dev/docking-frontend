@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { resolveAssetUrl } from "../api/http";
-import { createReward, updateReward, uploadRewardPicture } from "../api/rewards";
+import { createReward, updateReward } from "../api/rewards";
 
 const props = defineProps({
   open: {
@@ -33,7 +33,6 @@ const gameId = ref("");
 const picture = ref("");
 const pictureSource = ref("upload");
 const uploadedPictureData = ref("");
-const uploadedPictureFile = ref(null);
 const uploadedPictureName = ref("");
 const description = ref("");
 const prize = ref("");
@@ -192,7 +191,6 @@ function validateForm() {
 
 function clearUploadedPicture() {
   uploadedPictureData.value = "";
-  uploadedPictureFile.value = null;
   uploadedPictureName.value = "";
 }
 
@@ -208,7 +206,11 @@ function validatePictureValue(value) {
 
   const trimmedValue = String(value).trim();
   if (trimmedValue.startsWith("data:image/")) {
-    return "Uploaded picture must be saved before submitting. Please try again.";
+    if (trimmedValue.length > maxUploadedImageDataLength) {
+      return "Uploaded picture is too large. Please choose a smaller image.";
+    }
+
+    return "";
   }
 
   if (trimmedValue.startsWith("data:") || trimmedValue.startsWith("blob:")) {
@@ -244,19 +246,6 @@ function loadImageFromSource(source, cleanup = () => {}) {
     };
     image.src = source;
   });
-}
-
-function dataUrlToBlob(dataUrl) {
-  const [metadata, base64Data] = dataUrl.split(",");
-  const contentType = metadata?.match(/data:(.*?);base64/)?.[1] || "image/jpeg";
-  const binaryString = window.atob(base64Data || "");
-  const bytes = new Uint8Array(binaryString.length);
-
-  for (let index = 0; index < binaryString.length; index += 1) {
-    bytes[index] = binaryString.charCodeAt(index);
-  }
-
-  return new Blob([bytes], { type: contentType });
 }
 
 function drawResizedImage(image, maxDimension) {
@@ -334,13 +323,7 @@ async function handlePictureFileChange(event) {
     isResizingPicture.value = true;
     clearUploadedPicture();
     const resizedImage = await resizeImageFile(file);
-    const resizedBlob = dataUrlToBlob(resizedImage.dataUrl);
     uploadedPictureData.value = resizedImage.dataUrl;
-    uploadedPictureFile.value = new File(
-      [resizedBlob],
-      file.name.replace(/\.[^.]+$/, ".jpg") || "reward-picture.jpg",
-      { type: "image/jpeg" },
-    );
     uploadedPictureName.value = `${file.name} - prepared ${resizedImage.width}x${resizedImage.height} (${formatBytes(
       resizedImage.byteLength,
     )})`;
@@ -355,11 +338,7 @@ async function handlePictureFileChange(event) {
 
 async function getPreparedPicture() {
   if (pictureSource.value === "upload") {
-    if (!uploadedPictureFile.value) {
-      return null;
-    }
-
-    return uploadRewardPicture(uploadedPictureFile.value);
+    return uploadedPictureData.value || null;
   }
 
   return picture.value.trim() || null;
@@ -593,7 +572,7 @@ async function handleSubmit() {
                 Preparing picture...
               </p>
               <p v-else class="text-xs text-slate-500">
-                The uploaded file will be saved first, then its URL will be used as the reward picture.
+                The selected file will be saved with the reward picture.
               </p>
               <div v-if="uploadedPictureName" class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
                 <p class="truncate text-xs text-slate-600">
