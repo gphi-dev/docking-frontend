@@ -28,21 +28,21 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-full items-center justify-center bg-slate-950 px-4 py-12">
-    <div class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl shadow-sky-900/20">
+  <div class="flex min-h-full items-center justify-center bg-slate-50 px-4 py-12 font-sans">
+    <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
       <div class="mb-8 text-center">
         <div
-          class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/20 text-lg font-bold text-sky-300"
+          class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-950 text-lg font-bold text-white shadow-sm"
         >
           DA
         </div>
-        <h1 class="text-xl font-semibold text-white">Sign in</h1>
-        <p class="mt-1 text-sm text-slate-400">Use your admin credentials</p>
+        <h1 class="text-xl font-bold tracking-tight text-slate-950">Sign in</h1>
+        <p class="mt-1 text-sm text-slate-500">Use your admin credentials</p>
       </div>
 
       <form class="space-y-4" @submit.prevent="handleSubmit">
         <div>
-          <label for="username" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label for="username" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Username
           </label>
           <input
@@ -51,12 +51,12 @@ async function handleSubmit() {
             name="username"
             autocomplete="username"
             required
-            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none ring-sky-500/40 placeholder:text-slate-600 focus:border-sky-500 focus:ring-2"
+            class="form-control"
             placeholder="admin"
           />
         </div>
         <div>
-          <label for="password" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <label for="password" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Password
           </label>
           <input
@@ -66,18 +66,18 @@ async function handleSubmit() {
             name="password"
             autocomplete="current-password"
             required
-            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none ring-sky-500/40 placeholder:text-slate-600 focus:border-sky-500 focus:ring-2"
+            class="form-control"
             placeholder="••••••••"
           />
         </div>
 
-        <p v-if="errorMessage" class="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+        <p v-if="errorMessage" class="alert-danger">
           {{ errorMessage }}
         </p>
 
         <button
           type="submit"
-          class="flex w-full items-center justify-center rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+          class="btn-primary flex w-full"
           :disabled="isSubmitting"
         >
           {{ isSubmitting ? "Signing in…" : "Sign in" }}

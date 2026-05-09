@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { apiRequest, resolveAssetUrl } from "../api/http";
 import AddGameModal from "../components/AddGameModal.vue";
@@ -8,6 +8,7 @@ import { useAuthStore } from "../stores/auth";
 
 const router = useRouter();
 const authStore = useAuthStore();
+
 const games = ref([]);
 const loadError = ref("");
 const isLoading = ref(true);
@@ -19,6 +20,13 @@ const deletingGameId = ref(null);
 const pendingDeleteGame = ref(null);
 const deleteGameError = ref("");
 const failedImageUrls = ref(new Set());
+
+const skeletonCards = Array.from({ length: 8 }, (_, index) => index);
+
+const canCreateGames = computed(() => authStore.canAccess("games.create"));
+const canUpdateGames = computed(() => authStore.canAccess("games.update"));
+const canDeleteGames = computed(() => authStore.canAccess("games.delete"));
+const gameCountLabel = computed(() => `${games.value.length} ${games.value.length === 1 ? "game" : "games"}`);
 
 function extractGamesList(payload) {
   if (Array.isArray(payload)) {
@@ -46,62 +54,49 @@ function extractGamesList(payload) {
 
 function formatDateTime(isoString) {
   if (!isoString) {
-    return "—";
+    return "-";
   }
+
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) {
     return isoString;
   }
+
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
 }
 
-function getGameUrlLabel(game) {
-  const gameUrl = String(game?.game_url ?? "").trim();
-  return gameUrl || "—";
-}
-
 function isTruthy(value) {
   return value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";
 }
 
-function getMobileLabel(game) {
-  return isTruthy(game?.is_mobile) ? "Mobile" : "Web";
+function getGameUrlLabel(game) {
+  const gameUrl = String(game?.game_url ?? "").trim();
+  return gameUrl || "No URL configured";
 }
 
-function getGameCardTheme(index) {
-  const themes = [
-    {
-      shell: "border-emerald-200/80 bg-white/95 hover:border-emerald-400 hover:shadow-emerald-950/10",
-      frame: "from-emerald-950 via-emerald-900 to-lime-900",
-      glow: "bg-emerald-400/20",
-      badge: "bg-emerald-400/15 text-emerald-800 ring-1 ring-inset ring-emerald-500/20",
-      button: "border-emerald-200 text-emerald-900 hover:bg-emerald-50",
-    },
-    {
-      shell: "border-lime-200/80 bg-white/95 hover:border-lime-400 hover:shadow-lime-950/10",
-      frame: "from-lime-950 via-green-900 to-emerald-900",
-      glow: "bg-lime-400/20",
-      badge: "bg-lime-400/15 text-lime-900 ring-1 ring-inset ring-lime-500/20",
-      button: "border-lime-200 text-lime-900 hover:bg-lime-50",
-    },
-    {
-      shell: "border-teal-200/80 bg-white/95 hover:border-teal-400 hover:shadow-teal-950/10",
-      frame: "from-teal-950 via-emerald-900 to-green-900",
-      glow: "bg-teal-400/20",
-      badge: "bg-teal-400/15 text-teal-900 ring-1 ring-inset ring-teal-500/20",
-      button: "border-teal-200 text-teal-900 hover:bg-teal-50",
-    },
-  ];
+function getGameTypeLabel(game) {
+  return isTruthy(game?.is_mobile) ? "MOBILE" : "WEB";
+}
 
-  return themes[index % themes.length];
+function getGameRouteParam(game) {
+  return game?.slug || game?.game_id || game?.id;
+}
+
+function getCoverImage(game) {
+  return game?.background_url || game?.image_url || "";
+}
+
+function getThumbnailImage(game) {
+  return game?.image_url || game?.background_url || "";
 }
 
 async function loadGames() {
   loadError.value = "";
   isLoading.value = true;
+
   try {
     const payload = await apiRequest("/api/games");
     games.value = extractGamesList(payload);
@@ -112,18 +107,25 @@ async function loadGames() {
   }
 }
 
-function openGameRow(gameId) {
-  if (!gameId) {
-    // Prevent navigation to /games/undefined
-    console.warn("Missing game id, aborting navigation");
+function openGameDetail(game) {
+  const routeParam = getGameRouteParam(game);
+  if (!routeParam) {
+    console.warn("Missing game identifier, aborting navigation");
     return;
   }
-  router.push({ name: "game-detail", params: { gameId: String(gameId) } });
+
+  router.push({ name: "game-detail", params: { gameId: String(routeParam) } });
 }
 
 async function openEditGameModal(game) {
-  if (!authStore.canAccess("games.update")) {
+  if (!canUpdateGames.value) {
     loadError.value = "You do not have permission to update games.";
+    return;
+  }
+
+  const gameLookupId = getGameRouteParam(game);
+  if (!gameLookupId) {
+    loadError.value = "Could not load this game because it has no identifier.";
     return;
   }
 
@@ -131,7 +133,7 @@ async function openEditGameModal(game) {
   loadError.value = "";
 
   try {
-    const fullGame = await apiRequest(`/api/games/${game.slug}`);
+    const fullGame = await apiRequest(`/api/games/${gameLookupId}`);
     selectedGame.value = fullGame;
     isEditGameModalOpen.value = true;
   } catch (error) {
@@ -142,7 +144,7 @@ async function openEditGameModal(game) {
 }
 
 function handleDeleteGame(game) {
-  if (!authStore.canAccess("games.delete")) {
+  if (!canDeleteGames.value) {
     loadError.value = "Only Super Admin users can delete games.";
     return;
   }
@@ -217,171 +219,198 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-8">
-    <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
-      <div class="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
-      <div class="pointer-events-none absolute bottom-0 left-12 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
-      <div class="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">GPHI Game Registry</p>
-          <h1 class="mt-3 text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">Games</h1>
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
-            Browse every world in your lineup and jump straight into the detail view for players, activity, and health checks.
-          </p>
-        </div>
+  <div class="min-h-full space-y-6 font-sans text-slate-950">
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-200 bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div class="max-w-3xl">
+            <p class="text-xs font-bold uppercase tracking-[0.24em] text-emerald-700">Games Directory</p>
+            <h1 class="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+              Manage game catalog
+            </h1>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+              Review game availability, open details, and maintain catalog metadata from one responsive workspace.
+            </p>
+          </div>
 
-        <div class="flex flex-col items-stretch gap-3">
-          <div class="flex justify-end">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Total Games</p>
+              <p class="mt-1 text-2xl font-bold tracking-tight text-slate-950">{{ games.length }}</p>
+            </div>
             <button
-              v-if="authStore.canAccess('games.create')"
+              v-if="canCreateGames"
               type="button"
-              class="inline-flex items-center justify-center rounded-full border border-emerald-800/10 bg-emerald-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:bg-emerald-900"
+              class="inline-flex h-11 items-center justify-center rounded-xl bg-emerald-950 px-5 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               @click="isAddGameModalOpen = true"
             >
               Add game
             </button>
           </div>
-          <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">GAME COUNT</p>
-            <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ games.length }}</p>
-          </div>
         </div>
       </div>
+
     </section>
 
-    <div class="flex items-end justify-between gap-3">
-      <div>
-        <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">World Directory</p>
-        <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">All game cards</h2>
-      </div>
-    </div>
-
-    <p v-if="loadError" class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+    <p
+      v-if="loadError"
+      class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800"
+    >
       {{ loadError }}
     </p>
 
-    <div
-      v-if="isLoading"
-      class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
-    >
-      Loading games…
-    </div>
-    <div
-      v-else-if="games.length === 0"
-      class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
-    >
-      No games found.
-    </div>
-    <div v-else class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-      <article
-        v-for="(game, index) in games"
-        :key="game.id"
-        class="group relative overflow-hidden rounded-[26px] border shadow-[0_20px_60px_-36px_rgba(20,83,45,0.55)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_-36px_rgba(20,83,45,0.65)]"
-        :class="getGameCardTheme(index).shell"
+    <section class="space-y-4">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">Catalog</p>
+          <h2 class="mt-1 text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">Game cards</h2>
+        </div>
+        <p class="text-sm font-medium text-slate-500">{{ gameCountLabel }}</p>
+      </div>
+
+      <div
+        v-if="isLoading"
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
       >
-        <img
-          v-if="game.background_url && !hasImageLoadFailed(game.background_url)"
-          :src="resolveAssetUrl(game.background_url)"
-          alt=""
-          class="pointer-events-none absolute inset-x-0 top-0 h-28 w-full object-cover opacity-55"
-          loading="lazy"
-          @error="handleImageLoadError(game.background_url)"
-        />
-        <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-90" :class="getGameCardTheme(index).frame" />
-        <div class="pointer-events-none absolute -right-10 top-10 h-24 w-24 rounded-full blur-3xl" :class="getGameCardTheme(index).glow" />
-
-        <button
-          type="button"
-          class="relative flex min-w-0 flex-1 flex-col text-left"
-          @click="openGameRow(game.slug)"
+        <article
+          v-for="index in skeletonCards"
+          :key="index"
+          class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
         >
-          <div class="flex items-start gap-4 p-4 pt-5">
-            <div class="relative h-28 w-24 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-emerald-950/80 shadow-lg shadow-emerald-950/25 ring-1 ring-white/10">
-              <img
-                v-if="game.image_url && !hasImageLoadFailed(game.image_url)"
-                :src="resolveAssetUrl(game.image_url)"
-                :alt="game.name"
-                class="h-full w-full object-cover"
-                loading="lazy"
-                @error="handleImageLoadError(game.image_url)"
-              />
-              <div
-                v-else
-                class="flex h-full w-full items-center justify-center bg-emerald-950 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-100/70"
-              >
-                Ready
-              </div>
-            </div>
-
-            <div class="min-w-0 flex-1 pt-1">
-              <div
-                class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white"
-                :class="getGameCardTheme(index).badge"
-              >
-                Game ID: {{ game.game_id || "—" }}
-              </div>
-              <div
-                class="mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em]"
-                :class="
-                  isTruthy(game.is_mobile)
-                    ? 'bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-300/60'
-                    : 'bg-white/80 text-emerald-900 ring-1 ring-inset ring-emerald-200'
-                "
-              >
-                {{ getMobileLabel(game) }}
-              </div>
-              <p class="mt-3 truncate text-xl font-bold tracking-tight text-white">
-                {{ game.name }}
-              </p>
+          <div class="aspect-[16/9] animate-pulse bg-slate-100" />
+          <div class="space-y-3 p-4">
+            <div class="h-4 w-1/2 animate-pulse rounded bg-slate-100" />
+            <div class="h-7 w-3/4 animate-pulse rounded bg-slate-100" />
+            <div class="h-16 animate-pulse rounded-xl bg-slate-100" />
+            <div class="grid grid-cols-3 gap-2">
+              <div class="h-9 animate-pulse rounded-xl bg-slate-100" />
+              <div class="h-9 animate-pulse rounded-xl bg-slate-100" />
+              <div class="h-9 animate-pulse rounded-xl bg-slate-100" />
             </div>
           </div>
+        </article>
+      </div>
 
-          <div class="flex min-w-0 flex-1 flex-col px-4 pb-4">
-            <div class="rounded-2xl bg-emerald-50/80 p-4 ring-1 ring-inset ring-emerald-100">
-              <p class="line-clamp-3 text-sm leading-6 text-emerald-950/75">
-                {{ game.description || "No description yet. Add lore, action, or a hook to bring this arcade world to life." }}
-              </p>
-            </div>
-            <p
-              class="mt-3 truncate rounded-xl bg-white/75 px-3 py-2 text-xs font-semibold text-emerald-900/65 ring-1 ring-inset ring-emerald-100"
-              :title="getGameUrlLabel(game)"
+      <div
+        v-else-if="games.length === 0"
+        class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center shadow-sm"
+      >
+        <p class="text-base font-semibold text-slate-950">No games found</p>
+        <p class="mt-2 text-sm text-slate-500">Create a game to start building the directory.</p>
+      </div>
+
+      <div
+        v-else
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      >
+        <article
+          v-for="game in games"
+          :key="game.id"
+          class="group flex min-h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors duration-200 hover:border-emerald-300 hover:shadow-md"
+        >
+          <div class="relative aspect-[16/9] overflow-hidden bg-slate-100">
+            <img
+              v-if="getCoverImage(game) && !hasImageLoadFailed(getCoverImage(game))"
+              :src="resolveAssetUrl(getCoverImage(game))"
+              :alt="`${game.name || 'Game'} cover`"
+              class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+              loading="lazy"
+              @error="handleImageLoadError(getCoverImage(game))"
+            />
+            <div
+              v-else
+              class="flex h-full w-full items-center justify-center bg-slate-100 text-xs font-bold uppercase tracking-[0.2em] text-slate-400"
             >
-              Game URL: {{ getGameUrlLabel(game) }}
-            </p>
-            <div class="mt-4 flex items-center justify-between gap-3">
-              <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-900/45">
-                Added {{ formatDateTime(game.created_at) }}
-              </p>
-              <span class="inline-flex items-center rounded-full bg-emerald-950 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-100">
-                Enter
+              No cover
+            </div>
+
+            <div class="absolute left-3 top-3 flex flex-wrap gap-2">
+              <span class="inline-flex rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-emerald-800 shadow-sm ring-1 ring-inset ring-emerald-200">
+                ID {{ game.game_id || "-" }}
+              </span>
+              <span class="inline-flex rounded-full bg-emerald-950 px-2.5 py-1 text-[11px] font-bold text-emerald-50 shadow-sm">
+                {{ getGameTypeLabel(game) }}
               </span>
             </div>
           </div>
-        </button>
 
-        <div class="flex gap-2 border-t border-emerald-100/80 bg-white/80 px-4 py-3 backdrop-blur">
-          <button
-            v-if="authStore.canAccess('games.update')"
-            type="button"
-            class="flex-1 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-            :class="getGameCardTheme(index).button"
-            :disabled="editingGameId === game.id"
-            @click="openEditGameModal(game)"
-          >
-            {{ editingGameId === game.id ? "Loading..." : "Edit" }}
-          </button>
-          <button
-            v-if="authStore.canAccess('games.delete')"
-            type="button"
-            class="flex-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="deletingGameId === game.id"
-            @click="handleDeleteGame(game)"
-          >
-            {{ deletingGameId === game.id ? "Deleting…" : "Delete" }}
-          </button>
-        </div>
-      </article>
-    </div>
+          <div class="flex flex-1 flex-col p-4">
+            <div class="flex items-start gap-3">
+              <div class="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <img
+                  v-if="getThumbnailImage(game) && !hasImageLoadFailed(getThumbnailImage(game))"
+                  :src="resolveAssetUrl(getThumbnailImage(game))"
+                  :alt="`${game.name || 'Game'} thumbnail`"
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                  @error="handleImageLoadError(getThumbnailImage(game))"
+                />
+                <div
+                  v-else
+                  class="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400"
+                >
+                  Game
+                </div>
+              </div>
+
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate text-lg font-bold tracking-tight text-slate-950" :title="game.name">
+                  {{ game.name || "Untitled game" }}
+                </h3>
+                <p class="mt-1 truncate text-xs font-medium text-slate-500" :title="getGameUrlLabel(game)">
+                  {{ getGameUrlLabel(game) }}
+                </p>
+              </div>
+            </div>
+
+            <p class="mt-4 line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-slate-600">
+              {{ game.description || "No description has been added for this game yet." }}
+            </p>
+
+            <dl class="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+              <div>
+                <dt class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Created</dt>
+                <dd class="mt-1 truncate text-xs font-semibold text-slate-600">
+                  {{ formatDateTime(game.created_at) }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Platform</dt>
+                <dd class="mt-1 text-xs font-semibold text-slate-600">{{ getGameTypeLabel(game) }}</dd>
+              </div>
+            </dl>
+
+            <div class="mt-5 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                class="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-emerald-950 px-3 text-sm font-semibold text-white transition-colors duration-200 hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                @click="openGameDetail(game)"
+              >
+                Enter
+              </button>
+              <button
+                v-if="canUpdateGames"
+                type="button"
+                class="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors duration-200 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="editingGameId === game.id"
+                @click="openEditGameModal(game)"
+              >
+                {{ editingGameId === game.id ? "Loading..." : "Edit" }}
+              </button>
+              <button
+                v-if="canDeleteGames"
+                type="button"
+                class="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-sm font-semibold text-rose-700 transition-colors duration-200 hover:border-rose-300 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="deletingGameId === game.id"
+                @click="handleDeleteGame(game)"
+              >
+                {{ deletingGameId === game.id ? "Deleting..." : "Delete" }}
+              </button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <AddGameModal
       :open="isAddGameModalOpen"

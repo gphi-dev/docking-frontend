@@ -5,6 +5,8 @@ import { apiRequest, resolveAssetUrl } from "../api/http";
 import { extractUsermobileRecords } from "../api/response";
 
 const SUBSCRIBER_PAGE_SIZE = 20;
+const SUBSCRIBER_NICKNAME_FIELDS = ["nickname", "name", "display_name", "displayName", "username"];
+const SUBSCRIBER_POINTS_FIELDS = ["points", "score", "total_points", "totalPoints", "top_score", "high_score"];
 
 const props = defineProps({
   gameId: {
@@ -187,6 +189,39 @@ function getSubscriberPhone(subscriber) {
   return subscriber?.phone || subscriber?.phone_number || "—";
 }
 
+function getSubscriberNickname(subscriber) {
+  for (const field of SUBSCRIBER_NICKNAME_FIELDS) {
+    const nickname = String(subscriber?.[field] ?? "").trim();
+    if (nickname) {
+      return nickname;
+    }
+  }
+
+  return "—";
+}
+
+function getSubscriberPoints(subscriber) {
+  for (const field of SUBSCRIBER_POINTS_FIELDS) {
+    const points = Number(subscriber?.[field]);
+    if (Number.isFinite(points)) {
+      return points;
+    }
+  }
+
+  return null;
+}
+
+function formatSubscriberPoints(subscriber) {
+  const points = getSubscriberPoints(subscriber);
+  if (points === null) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 0,
+  }).format(points);
+}
+
 const displayedSubscribers = computed(() => {
   const startIndex = (currentPage.value - 1) * SUBSCRIBER_PAGE_SIZE;
   return subscribers.value.slice(startIndex, startIndex + SUBSCRIBER_PAGE_SIZE);
@@ -206,37 +241,35 @@ watch(
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="page-stack">
     <div>
       <RouterLink
         :to="{ name: 'games' }"
-        class="text-sm font-semibold text-emerald-800 hover:text-emerald-600"
+        class="text-sm font-semibold text-emerald-800 transition-colors duration-200 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
       >
-        ← Back to games
+        Back to games
       </RouterLink>
     </div>
 
-    <p v-if="loadError" class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+    <p v-if="loadError" class="alert-danger">
       {{ loadError }}
     </p>
 
-    <div v-else-if="isLoading" class="rounded-[26px] border border-dashed border-emerald-200 bg-white/90 p-10 text-center text-sm text-emerald-900/55">
+    <div v-else-if="isLoading" class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 shadow-sm">
       Loading game…
     </div>
 
     <template v-else-if="game">
-      <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
+      <section class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <img
           v-if="game.background_url && !hasGameBackgroundLoadFailed"
           :src="resolveAssetUrl(game.background_url)"
           alt=""
-          class="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20"
+          class="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-10"
           @error="hasGameBackgroundLoadFailed = true"
         />
-        <div class="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
-        <div class="pointer-events-none absolute bottom-0 left-12 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
         <div class="relative grid gap-6 md:grid-cols-[minmax(0,220px)_1fr] md:items-start">
-          <div class="overflow-hidden rounded-[24px] border border-white/40 bg-emerald-950/90 shadow-xl shadow-emerald-950/15 ring-1 ring-white/10">
+          <div class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
             <img
               v-if="game.image_url && !hasGameImageLoadFailed"
               :src="resolveAssetUrl(game.image_url)"
@@ -252,33 +285,33 @@ watch(
             </div>
           </div>
           <div class="min-w-0 space-y-3">
-            <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">World Detail</p>
-            <h1 class="text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">
+            <p class="page-kicker">World Detail</p>
+            <h1 class="text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">
               {{ game.name }}
             </h1>
-            <div class="inline-flex rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
+            <div class="badge-emerald uppercase tracking-widest">
               Game ID: {{ game.game_id || "—" }}
             </div>
             <div
               class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] ring-1 ring-inset"
               :class="
                 isTruthy(game.is_mobile)
-                  ? 'bg-sky-100 text-sky-800 ring-sky-300/60'
-                  : 'bg-white/70 text-emerald-900 ring-emerald-200'
+                  ? 'bg-sky-50 text-sky-800 ring-sky-200'
+                  : 'bg-slate-100 text-slate-700 ring-slate-200'
               "
             >
               {{ getMobileLabel(game) }}
             </div>
             <p
-              class="max-w-2xl truncate rounded-xl bg-white/65 px-3 py-2 text-xs font-semibold text-emerald-900/65 ring-1 ring-inset ring-emerald-100"
+              class="max-w-2xl truncate rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500 ring-1 ring-inset ring-slate-200"
               :title="getGameUrlLabel(game)"
             >
               Game URL: {{ getGameUrlLabel(game) }}
             </p>
-            <p class="max-w-2xl text-sm leading-6 text-emerald-950/70">
+            <p class="max-w-2xl text-sm leading-6 text-slate-600">
               {{ game.description || "No description provided." }}
             </p>
-            <p class="text-xs font-medium uppercase tracking-[0.25em] text-emerald-900/45">
+            <p class="text-xs font-medium uppercase tracking-widest text-slate-500">
               Created {{ formatDateTime(game.created_at) }}
             </p>
           </div>
@@ -288,36 +321,44 @@ watch(
       <section class="space-y-5">
         <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Audience Feed</p>
-            <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Subscribers</h2>
+            <p class="page-kicker">Audience Feed</p>
+            <h2 class="section-heading mt-1">Subscribers</h2>
           </div>
-          <p class="text-sm text-emerald-900/55">
+          <p class="text-sm text-slate-500">
             {{ subscriberRangeLabel }}
           </p>
         </div>
         <div
-          class="relative overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]"
+          class="table-shell relative"
           :class="{ 'opacity-70': isSubscribersLoading }"
         >
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-200 text-sm">
-              <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.24em] text-emerald-800/70">
+              <thead class="table-head">
                 <tr>
                   <th class="px-4 py-3">Phone</th>
+                  <th class="px-4 py-3">Nickname</th>
+                  <th class="px-4 py-3">Points</th>
                   <th class="px-4 py-3">Subscribed</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-emerald-100/80">
+              <tbody class="table-body">
                 <tr v-if="!isSubscribersLoading && subscribers.length === 0">
-                  <td colspan="2" class="px-4 py-8 text-center text-emerald-900/55">
+                  <td colspan="4" class="px-4 py-8 text-center text-slate-500">
                     No subscribers for this game yet.
                   </td>
                 </tr>
-                <tr v-for="subscriber in displayedSubscribers" :key="subscriber.id" class="hover:bg-emerald-50/70">
-                  <td class="whitespace-nowrap px-4 py-3 font-medium text-emerald-950">
+                <tr v-for="subscriber in displayedSubscribers" :key="subscriber.id" class="table-row">
+                  <td class="whitespace-nowrap px-4 py-3 font-medium text-slate-950">
                     {{ getSubscriberPhone(subscriber) }}
                   </td>
-                  <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
+                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
+                    {{ getSubscriberNickname(subscriber) }}
+                  </td>
+                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950">
+                    {{ formatSubscriberPoints(subscriber) }}
+                  </td>
+                  <td class="whitespace-nowrap px-4 py-3 text-slate-500">
                     {{ formatDateTime(subscriber.created_at) }}
                   </td>
                 </tr>
@@ -326,7 +367,7 @@ watch(
           </div>
           <p
             v-if="isSubscribersLoading"
-            class="absolute inset-0 flex items-center justify-center bg-white/60 text-sm font-medium text-emerald-900/60"
+            class="absolute inset-0 flex items-center justify-center bg-white/70 text-sm font-medium text-slate-500"
           >
             Loading subscribers…
           </p>
@@ -336,14 +377,14 @@ watch(
           v-if="subscribersTotal > 0"
           class="mt-4 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center"
         >
-          <p class="text-xs text-emerald-900/50">
+          <p class="text-xs text-slate-500">
             Page {{ currentPage }} of {{ subscribersTotalPages }}
           </p>
 
           <div class="flex justify-end gap-2">
             <button
               type="button"
-              class="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+              class="btn-secondary"
               :disabled="isSubscribersLoading || currentPage <= 1"
               aria-label="Previous page"
               @click="goToPage(currentPage - 1)"
@@ -352,7 +393,7 @@ watch(
             </button>
             <button
               type="button"
-              class="rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+              class="btn-secondary"
               :disabled="isSubscribersLoading || currentPage >= subscribersTotalPages"
               aria-label="Next page"
               @click="goToPage(currentPage + 1)"

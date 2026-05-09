@@ -122,18 +122,15 @@ watch(
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(187,247,208,0.38),transparent_32%),linear-gradient(135deg,#f7fee7,#f0fdf4_42%,#ecfdf5)]">
+  <div class="flex min-h-screen bg-slate-50 font-sans text-slate-950">
     <aside
-      class="sticky top-0 hidden h-screen w-72 shrink-0 overflow-hidden border-r border-emerald-900/30 bg-[radial-gradient(circle_at_top_left,rgba(132,204,22,0.24),transparent_35%),linear-gradient(180deg,#052e16,#064e3b_50%,#022c22)] text-emerald-50 shadow-[18px_0_60px_-38px_rgba(2,44,34,0.85)] md:flex md:flex-col"
+      class="sticky top-0 hidden h-screen w-72 shrink-0 overflow-hidden border-r border-emerald-900/40 bg-emerald-950 text-emerald-50 shadow-xl shadow-slate-950/10 md:flex md:flex-col"
     >
-      <div class="pointer-events-none absolute -left-12 top-16 h-44 w-44 rounded-full bg-lime-300/10 blur-3xl" />
-      <div class="pointer-events-none absolute bottom-24 right-0 h-32 w-32 rounded-full bg-emerald-300/10 blur-3xl" />
-
       <div class="relative border-b border-white/10 px-5 py-5">
         <div class="flex items-center gap-3">
-          <div class="flex h-14 w-28 items-center justify-center rounded-2xl border border-white/15 bg-white/95 p-2 shadow-lg shadow-emerald-950/35 ring-1 ring-white/10">
+          <div class="flex h-14 w-28 items-center justify-center rounded-2xl border border-white/10 bg-white p-2 shadow-sm">
             <img
-              src="/bybet.jpg"
+              src="/bybetlogo.jpg"
               alt="ByBet"
               class="h-full w-full rounded-xl object-contain"
             />
@@ -143,10 +140,10 @@ watch(
             <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200/60">Dashboard</p>
           </div>
         </div>
-        <div class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+        <div class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4">
           <div class="flex items-center justify-between gap-3">
             <p class="truncate text-base font-bold text-white">Hello {{ adminUsername }}</p>
-            <span class="h-2.5 w-2.5 rounded-full bg-lime-300 shadow-[0_0_20px_rgba(190,242,100,0.9)]" />
+            <span class="h-2.5 w-2.5 rounded-full bg-lime-300 ring-4 ring-lime-300/10" />
           </div>
         </div>
       </div>
@@ -157,10 +154,10 @@ watch(
           v-for="navigationItem in visibleNavigationLinks"
           :key="navigationItem.label"
           :to="navigationItem.to"
-          class="group rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:border-white/10 hover:bg-white/10 hover:text-white"
+          class="group rounded-xl border px-4 py-3 text-sm font-semibold transition-colors duration-200 hover:border-white/10 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
           :class="
             isNavigationActive(navigationItem.to.name)
-              ? 'border-lime-300/30 bg-lime-300/15 text-white shadow-lg shadow-emerald-950/20'
+              ? 'border-emerald-300/30 bg-white/15 text-white shadow-sm'
               : 'border-transparent text-emerald-100/70'
           "
         >
@@ -183,23 +180,23 @@ watch(
 
     <div class="flex min-w-0 flex-1 flex-col">
       <header
-        class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-emerald-200/70 bg-white/75 px-4 py-3 shadow-sm shadow-emerald-950/5 backdrop-blur-xl md:px-8"
+        class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white/90 px-4 py-3 shadow-sm backdrop-blur-xl md:px-8"
       >
         <div class="flex min-w-0 items-center gap-3">
           <div class="hidden min-w-0 items-center gap-3 md:flex">
 
             <div class="min-w-0">
-              <p class="truncate text-sm font-black uppercase tracking-[0.18em] text-emerald-950">
+              <p class="truncate text-sm font-black uppercase tracking-[0.18em] text-slate-950">
                 Game Docking - Onboarding System
               </p>
-              <p class="truncate text-xs font-semibold text-emerald-900/55">
+              <p class="truncate text-xs font-semibold text-slate-500">
                 Professional dashboard console
               </p>
             </div>
           </div>
           <div class="flex h-10 w-20 items-center justify-center rounded-2xl border border-emerald-200 bg-white p-1.5 shadow-sm md:hidden">
             <img
-              src="/bybet.jpg"
+              src="/bybetlogo.jpg"
               alt="ByBet"
               class="h-full w-full rounded-xl object-contain"
             />
@@ -228,7 +225,7 @@ watch(
 
         <button
           type="button"
-          class="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white/90 px-4 py-2 text-sm font-semibold text-emerald-900 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
+          class="btn-secondary"
           @click="handleLogout"
         >
           Logout

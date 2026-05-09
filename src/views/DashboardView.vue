@@ -7,6 +7,9 @@ import AddGameModal from "../components/AddGameModal.vue";
 import ConfirmActionModal from "../components/ConfirmActionModal.vue";
 import { useAuthStore } from "../stores/auth";
 
+const SUBSCRIBER_NICKNAME_FIELDS = ["nickname", "name", "display_name", "displayName", "username"];
+const SUBSCRIBER_POINTS_FIELDS = ["points", "score", "total_points", "totalPoints", "top_score", "high_score"];
+
 const router = useRouter();
 const authStore = useAuthStore();
 const games = ref([]);
@@ -99,28 +102,44 @@ function getSubscriberGameName(subscriber) {
   return subscriber?.game_name || gameNameById.value.get(String(subscriber?.game_id ?? "")) || "—";
 }
 
+function getSubscriberNickname(subscriber) {
+  for (const field of SUBSCRIBER_NICKNAME_FIELDS) {
+    const nickname = String(subscriber?.[field] ?? "").trim();
+    if (nickname) {
+      return nickname;
+    }
+  }
+
+  return "—";
+}
+
+function formatSubscriberPoints(subscriber) {
+  for (const field of SUBSCRIBER_POINTS_FIELDS) {
+    const points = Number(subscriber?.[field]);
+    if (Number.isFinite(points)) {
+      return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(points);
+    }
+  }
+
+  return "—";
+}
+
 function getGameCardTheme(index) {
   const themes = [
     {
-      shell: "border-emerald-200/80 bg-white/95 hover:border-emerald-400 hover:shadow-emerald-950/10",
-      frame: "from-emerald-950 via-emerald-900 to-lime-900",
-      glow: "bg-emerald-400/20",
-      badge: "bg-emerald-400/15 text-emerald-800 ring-1 ring-inset ring-emerald-500/20",
-      button: "border-emerald-200 text-emerald-900 hover:bg-emerald-50",
+      shell: "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md",
+      badge: "bg-white text-emerald-950 shadow-sm ring-1 ring-inset ring-emerald-200",
+      button: "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900",
     },
     {
-      shell: "border-lime-200/80 bg-white/95 hover:border-lime-400 hover:shadow-lime-950/10",
-      frame: "from-lime-950 via-green-900 to-emerald-900",
-      glow: "bg-lime-400/20",
-      badge: "bg-lime-400/15 text-lime-900 ring-1 ring-inset ring-lime-500/20",
-      button: "border-lime-200 text-lime-900 hover:bg-lime-50",
+      shell: "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md",
+      badge: "bg-white text-emerald-950 shadow-sm ring-1 ring-inset ring-emerald-200",
+      button: "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900",
     },
     {
-      shell: "border-teal-200/80 bg-white/95 hover:border-teal-400 hover:shadow-teal-950/10",
-      frame: "from-teal-950 via-emerald-900 to-green-900",
-      glow: "bg-teal-400/20",
-      badge: "bg-teal-400/15 text-teal-900 ring-1 ring-inset ring-teal-500/20",
-      button: "border-teal-200 text-teal-900 hover:bg-teal-50",
+      shell: "border-slate-200 bg-white hover:border-emerald-300 hover:shadow-md",
+      badge: "bg-white text-emerald-950 shadow-sm ring-1 ring-inset ring-emerald-200",
+      button: "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-900",
     },
   ];
 
@@ -264,15 +283,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-8">
-    <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
-      <div class="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
-      <div class="pointer-events-none absolute bottom-0 left-12 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
-      <div class="relative flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+  <div class="page-stack">
+    <section class="page-hero">
+      <div class="page-hero-header flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="max-w-3xl">
-          <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Dashboard</p>
+          <p class="page-kicker">Dashboard</p>
+          <h1 class="page-title">Operations overview</h1>
 
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
+          <p class="page-copy">
             Browse every world in your lineup and jump straight into the detail view for players, activity, and health checks.
           </p>
         </div>
@@ -280,7 +298,7 @@ onMounted(() => {
           <button
             v-if="authStore.canAccess('games.create')"
             type="button"
-            class="inline-flex items-center justify-center rounded-full border border-emerald-800/10 bg-emerald-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:bg-emerald-900"
+            class="btn-primary"
             @click="isAddGameModalOpen = true"
           >
             Add game
@@ -288,38 +306,38 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="relative mt-6 grid gap-3 sm:grid-cols-3">
+      <div class="grid gap-4 px-4 py-4 sm:grid-cols-3 sm:px-6 lg:px-8">
         <RouterLink
           :to="{ name: 'games' }"
-          class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/85"
+          class="stat-card text-right transition-colors duration-200 hover:border-emerald-300 hover:bg-emerald-50"
         >
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">View All Games</p>
-          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ games.length }}</p>
+          <p class="stat-label">View All Games</p>
+          <p class="stat-value">{{ games.length }}</p>
         </RouterLink>
-        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Featured Games</p>
-          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ featuredGames.length }}</p>
+        <div class="stat-card text-right">
+          <p class="stat-label">Featured Games</p>
+          <p class="stat-value">{{ featuredGames.length }}</p>
         </div>
-        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">New Games</p>
-          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ newGames.length }}</p>
+        <div class="stat-card text-right">
+          <p class="stat-label">New Games</p>
+          <p class="stat-value">{{ newGames.length }}</p>
         </div>
       </div>
     </section>
 
-    <p v-if="loadError" class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+    <p v-if="loadError" class="alert-danger">
       {{ loadError }}
     </p>
 
     <section class="space-y-5">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">GPHI Arcade World</p>
-          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Featured game</h2>
+          <p class="page-kicker">GPHI Arcade World</p>
+          <h2 class="section-heading mt-1">Featured game</h2>
         </div>
         <RouterLink
           :to="{ name: 'games' }"
-          class="text-sm font-semibold text-emerald-800 transition hover:text-emerald-600"
+          class="text-sm font-semibold text-emerald-800 transition-colors duration-200 hover:text-emerald-600"
         >
           View all
         </RouterLink>
@@ -327,13 +345,13 @@ onMounted(() => {
 
       <div
         v-if="isLoading"
-        class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
+        class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 shadow-sm"
       >
         Loading featured games…
       </div>
       <div
         v-else-if="featuredGames.length === 0"
-        class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
+        class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 shadow-sm"
       >
         No featured games yet. Add game activity to populate this section.
       </div>
@@ -341,7 +359,7 @@ onMounted(() => {
         <article
           v-for="(game, index) in featuredGames"
           :key="game.id"
-          class="group relative overflow-hidden rounded-[26px] border shadow-[0_20px_60px_-36px_rgba(20,83,45,0.55)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_-36px_rgba(20,83,45,0.65)]"
+          class="group relative overflow-hidden rounded-2xl border shadow-sm transition-colors duration-200"
           :class="getGameCardTheme(index).shell"
         >
           <img
@@ -352,8 +370,7 @@ onMounted(() => {
             loading="lazy"
             @error="handleImageLoadError(game.background_url)"
           />
-          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-90" :class="getGameCardTheme(index).frame" />
-          <div class="pointer-events-none absolute -right-10 top-10 h-24 w-24 rounded-full blur-3xl" :class="getGameCardTheme(index).glow" />
+          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-emerald-950/85" />
 
           <button
             type="button"
@@ -380,7 +397,7 @@ onMounted(() => {
 
               <div class="min-w-0 flex-1 pt-1">
                 <div
-                  class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white"
+                  class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em]"
                   :class="getGameCardTheme(index).badge"
                 >
                   Game ID: {{ game.game_id }}
@@ -389,8 +406,8 @@ onMounted(() => {
                   class="mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em]"
                   :class="
                     isTruthy(game.is_mobile)
-                      ? 'bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-300/60'
-                      : 'bg-white/80 text-emerald-900 ring-1 ring-inset ring-emerald-200'
+                      ? 'bg-sky-50 text-sky-950 shadow-sm ring-1 ring-inset ring-sky-200'
+                      : 'bg-white text-emerald-950 shadow-sm ring-1 ring-inset ring-emerald-200'
                   "
                 >
                   {{ getMobileLabel(game) }}
@@ -402,17 +419,17 @@ onMounted(() => {
             </div>
 
             <div class="flex min-w-0 flex-1 flex-col px-4 pb-4">
-              <div class="rounded-2xl bg-emerald-50/80 p-4 ring-1 ring-inset ring-emerald-100">
-                <p class="line-clamp-3 text-sm leading-6 text-emerald-950/75">
+              <div class="rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-100">
+                <p class="line-clamp-3 text-sm leading-6 text-slate-600">
                   {{ game.description || "No description yet. Add lore, action, or a hook to bring this arcade world to life." }}
                 </p>
               </div>
               <div class="mt-4 flex items-center justify-between gap-3">
                 <div class="min-w-0">
-                  <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-900/45">
+                  <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">
                     Added {{ formatDateTime(game.created_at) }}
                   </p>
-                  <p class="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-800/65">
+                  <p class="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                     {{ game.total_players ?? 0 }} players
                   </p>
                 </div>
@@ -423,7 +440,7 @@ onMounted(() => {
             </div>
           </button>
 
-          <div class="flex gap-2 border-t border-emerald-100/80 bg-white/80 px-4 py-3 backdrop-blur">
+          <div class="flex gap-2 border-t border-slate-100 bg-white px-4 py-3">
             <button
               v-if="authStore.canAccess('games.update')"
               type="button"
@@ -452,19 +469,19 @@ onMounted(() => {
       <div class="flex items-end justify-between gap-3">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Launch Queue</p>
-          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">New games</h2>
+          <h2 class="section-heading mt-1">New games</h2>
         </div>
-        <p class="text-sm text-emerald-900/55">Latest 3</p>
+        <p class="text-sm text-slate-500">Latest 3</p>
       </div>
       <div
         v-if="isLoading"
-        class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
+        class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 shadow-sm"
       >
         Loading new games…
       </div>
       <div
         v-else-if="newGames.length === 0"
-        class="rounded-[24px] border border-dashed border-emerald-200 bg-white/80 p-10 text-center text-sm text-emerald-900/60"
+        class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 shadow-sm"
       >
         No new games yet.
       </div>
@@ -472,7 +489,7 @@ onMounted(() => {
         <article
           v-for="(game, index) in newGames"
           :key="game.id"
-          class="group relative overflow-hidden rounded-[26px] border shadow-[0_20px_60px_-36px_rgba(20,83,45,0.55)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_-36px_rgba(20,83,45,0.65)]"
+          class="group relative overflow-hidden rounded-2xl border shadow-sm transition-colors duration-200"
           :class="getGameCardTheme(index).shell"
         >
           <img
@@ -483,8 +500,7 @@ onMounted(() => {
             loading="lazy"
             @error="handleImageLoadError(game.background_url)"
           />
-          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-br opacity-90" :class="getGameCardTheme(index).frame" />
-          <div class="pointer-events-none absolute -right-10 top-10 h-24 w-24 rounded-full blur-3xl" :class="getGameCardTheme(index).glow" />
+          <div class="pointer-events-none absolute inset-x-0 top-0 h-28 bg-emerald-950/85" />
 
           <button
             type="button"
@@ -511,7 +527,7 @@ onMounted(() => {
 
               <div class="min-w-0 flex-1 pt-1">
                 <div
-                  class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white"
+                  class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em]"
                   :class="getGameCardTheme(index).badge"
                 >
                   Game ID: {{ game.game_id }}
@@ -520,8 +536,8 @@ onMounted(() => {
                   class="mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em]"
                   :class="
                     isTruthy(game.is_mobile)
-                      ? 'bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-300/60'
-                      : 'bg-white/80 text-emerald-900 ring-1 ring-inset ring-emerald-200'
+                      ? 'bg-sky-50 text-sky-950 shadow-sm ring-1 ring-inset ring-sky-200'
+                      : 'bg-white text-emerald-950 shadow-sm ring-1 ring-inset ring-emerald-200'
                   "
                 >
                   {{ getMobileLabel(game) }}
@@ -533,13 +549,13 @@ onMounted(() => {
             </div>
 
             <div class="flex min-w-0 flex-1 flex-col px-4 pb-4">
-              <div class="rounded-2xl bg-emerald-50/80 p-4 ring-1 ring-inset ring-emerald-100">
-                <p class="line-clamp-3 text-sm leading-6 text-emerald-950/75">
+              <div class="rounded-2xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-100">
+                <p class="line-clamp-3 text-sm leading-6 text-slate-600">
                   {{ game.description || "No description yet. Add lore, action, or a hook to bring this arcade world to life." }}
                 </p>
               </div>
               <div class="mt-4 flex items-center justify-between gap-3">
-                <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-900/45">
+                <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">
                   Added {{ formatDateTime(game.created_at) }}
                 </p>
                 <span class="inline-flex items-center rounded-full bg-emerald-950 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-100">
@@ -549,7 +565,7 @@ onMounted(() => {
             </div>
           </button>
 
-          <div class="flex gap-2 border-t border-emerald-100/80 bg-white/80 px-4 py-3 backdrop-blur">
+          <div class="flex gap-2 border-t border-slate-100 bg-white px-4 py-3">
             <button
               v-if="authStore.canAccess('games.update')"
               type="button"
@@ -578,13 +594,14 @@ onMounted(() => {
       <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           
-          <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Recent Subscribers</h2>
+          <p class="page-kicker">Audience Feed</p>
+          <h2 class="section-heading mt-1">Recent Subscribers</h2>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-          <p class="text-sm text-emerald-900/55">{{ recentSubscribersLabel }}</p>
+          <p class="text-sm text-slate-500">{{ recentSubscribersLabel }}</p>
           <select
             v-model="recentSubscribersDisplay"
-            class="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
+            class="form-control sm:w-auto"
             aria-label="Recent subscribers display"
           >
             <option value="5">Show 5</option>
@@ -593,47 +610,55 @@ onMounted(() => {
           </select>
         </div>
       </div>
-      <div class="overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
+      <div class="table-shell">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.22em] text-emerald-800/70">
+            <thead class="table-head">
               <tr>
                 <th class="px-4 py-3">Phone Number</th>
+                <th class="px-4 py-3">Nickname</th>
+                <th class="px-4 py-3">Points</th>
                 <th class="px-4 py-3">Game ID</th>
                 <th class="px-4 py-3">Game Name</th>
                 <th class="px-4 py-3">Verified</th>
                 <th class="px-4 py-3">Created</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-emerald-100/80">
+            <tbody class="table-body">
               <tr v-if="isLoading">
-                <td colspan="5" class="px-4 py-10 text-center text-emerald-900/55">Loading recent subscribers…</td>
+                <td colspan="7" class="px-4 py-10 text-center text-slate-500">Loading recent subscribers...</td>
               </tr>
               <tr v-else-if="displayedRecentSubscribers.length === 0">
-                <td colspan="5" class="px-4 py-10 text-center text-emerald-900/55">No recent subscribers found.</td>
+                <td colspan="7" class="px-4 py-10 text-center text-slate-500">No recent subscribers found.</td>
               </tr>
               <tr
                 v-for="subscriber in displayedRecentSubscribers"
                 :key="subscriber.id"
-                class="transition hover:bg-emerald-50/70"
+                class="table-row"
               >
                 <td class="px-4 py-3">
-                  <span class="font-semibold text-emerald-950">
+                  <span class="font-semibold text-slate-950">
                     {{ subscriber.phone || "—" }}
                   </span>
                 </td>
+                <td class="px-4 py-3 font-semibold text-slate-900">
+                  {{ getSubscriberNickname(subscriber) }}
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
+                  {{ formatSubscriberPoints(subscriber) }}
+                </td>
                 <td class="px-4 py-3 text-emerald-900/65">
-                  <span class="inline-flex rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
+                  <span class="badge-emerald">
                     {{ subscriber.game_id || "—" }}
                   </span>
                 </td>
-                <td class="px-4 py-3 font-semibold text-emerald-950">
+                <td class="px-4 py-3 font-semibold text-slate-950">
                   {{ getSubscriberGameName(subscriber) }}
                 </td>
-                <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
+                <td class="whitespace-nowrap px-4 py-3 text-slate-600">
                   {{ isVerifiedSubscriber(subscriber) ? "Yes" : "No" }}
                 </td>
-                <td class="whitespace-nowrap px-4 py-3 text-emerald-900/55">
+                <td class="whitespace-nowrap px-4 py-3 text-slate-500">
                   {{ formatDateTime(subscriber.created_at) }}
                 </td>
               </tr>

@@ -4,6 +4,7 @@ import { apiRequest } from "../api/http";
 import { extractUsermobileRecords } from "../api/response";
 
 const PAGE_SIZE = 10;
+const NICKNAME_FIELDS = ["nickname", "name", "display_name", "displayName", "username"];
 const SCORE_FIELDS = ["score", "top_score", "high_score", "highest_score", "best_score", "points", "total_score"];
 
 const games = ref([]);
@@ -186,7 +187,7 @@ const filteredUsersmobile = computed(() => {
 
 const totalUsers = computed(() => filteredUsersmobile.value.length);
 const totalPages = computed(() => (isTopScorerMode.value ? 1 : Math.max(1, Math.ceil(totalUsers.value / PAGE_SIZE))));
-const tableColumnCount = 5;
+const tableColumnCount = 6;
 
 const displayedUsersmobile = computed(() => {
   if (isServerPaginated.value || isTopScorerMode.value) {
@@ -264,6 +265,17 @@ function getPhoneNumber(user) {
   return user?.phone ?? user?.phone_number ?? "—";
 }
 
+function getNickname(user) {
+  for (const field of NICKNAME_FIELDS) {
+    const nickname = String(user?.[field] ?? "").trim();
+    if (nickname) {
+      return nickname;
+    }
+  }
+
+  return "—";
+}
+
 watch([selectedGameId, verificationFilter, subscriberViewMode], () => {
   currentPage.value = 1;
 });
@@ -281,38 +293,36 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-8">
-    <section class="relative overflow-hidden rounded-[28px] border border-emerald-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.3),_transparent_35%),linear-gradient(135deg,_rgba(236,253,245,0.98),_rgba(240,253,244,0.9)_45%,_rgba(236,252,203,0.92))] p-6 shadow-[0_25px_80px_-40px_rgba(20,83,45,0.45)] md:p-8">
-      <div class="pointer-events-none absolute -right-10 top-2 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
-      <div class="pointer-events-none absolute bottom-0 left-12 h-24 w-24 rounded-full bg-lime-300/25 blur-2xl" />
-      <div class="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+  <div class="page-stack">
+    <section class="page-hero">
+      <div class="page-hero-header flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.35em] text-emerald-800/70">Signal Registry</p>
-          <h1 class="mt-3 text-3xl font-bold tracking-tight text-emerald-950 md:text-4xl">API usersmobile</h1>
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-emerald-950/70">
+          <p class="page-kicker">Signal Registry</p>
+          <h1 class="page-title">API usersmobile</h1>
+          <p class="page-copy">
             Player mobile entries mapped to their game worlds for quick monitoring and support tracing.
           </p>
         </div>
-        <div class="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-right backdrop-blur">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-900/50">Shown Entries</p>
-          <p class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">{{ totalUsers }}</p>
+        <div class="stat-card text-right">
+          <p class="stat-label">Shown Entries</p>
+          <p class="stat-value">{{ totalUsers }}</p>
         </div>
       </div>
     </section>
 
-    <p v-if="loadError" class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+    <p v-if="loadError" class="alert-danger">
       {{ loadError }}
     </p>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-[0.25em] text-emerald-700/70">Player Signals</p>
-        <h2 class="mt-1 text-2xl font-bold tracking-tight text-emerald-950">Subscriber Mobile Numbers</h2>
+        <p class="page-kicker">Player Signals</p>
+        <h2 class="section-heading mt-1">Subscriber Mobile Numbers</h2>
       </div>
       <div class="flex flex-wrap items-center gap-3">
         <select
           v-model="verificationFilter"
-          class="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
+          class="form-control sm:w-auto"
           aria-label="Verification filter"
         >
           <option value="verified">Show Verified</option>
@@ -320,7 +330,7 @@ onMounted(() => {
         </select>
         <select
           v-model="subscriberViewMode"
-          class="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
+          class="form-control sm:w-auto"
           aria-label="Subscriber view mode"
         >
           <option value="all">Show Subscribers</option>
@@ -329,41 +339,45 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
+    <div class="table-shell">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
-          <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.24em] text-emerald-800/70">
+          <thead class="table-head">
             <tr>
               <th class="px-4 py-3">Phone Number</th>
+              <th class="px-4 py-3">Nickname</th>
               <th class="px-4 py-3">Game ID</th>
               <th class="px-4 py-3">Game Name</th>
               <th class="px-4 py-3">Points</th>
               <th class="px-4 py-3">Subscribed Date</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-emerald-100/80">
+          <tbody class="table-body">
             <tr v-if="isLoadingMobile">
-              <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-emerald-900/55">Loading…</td>
+              <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-slate-500">Loading...</td>
             </tr>
             <tr v-else-if="displayedUsersmobile.length === 0">
-              <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-emerald-900/55">{{ emptyUsersMessage }}</td>
+              <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-slate-500">{{ emptyUsersMessage }}</td>
             </tr>
-            <tr v-for="user in displayedUsersmobile" :key="user.id" class="hover:bg-emerald-50/70">
+            <tr v-for="user in displayedUsersmobile" :key="user.id" class="table-row">
               <td class="px-4 py-3 font-semibold text-slate-900">
                 {{ getPhoneNumber(user) }}
               </td>
-              <td class="px-4 py-3 text-emerald-900/65">
-                <span class="inline-flex rounded-full bg-emerald-400/15 px-2.5 py-1 text-xs font-bold text-emerald-900 ring-1 ring-inset ring-emerald-500/20">
+              <td class="px-4 py-3 font-semibold text-slate-900">
+                {{ getNickname(user) }}
+              </td>
+              <td class="px-4 py-3 text-slate-600">
+                <span class="badge-emerald">
                   {{ user.game_id }}
                 </span>
               </td>
-              <td class="px-4 py-3 font-semibold text-emerald-950">
+              <td class="px-4 py-3 font-semibold text-slate-950">
                 {{ getGameName(user) }}
               </td>
-              <td class="whitespace-nowrap px-4 py-3 font-semibold text-emerald-950">
+              <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950">
                 {{ formatUserScore(user) }}
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
+              <td class="whitespace-nowrap px-4 py-3 text-slate-500">
                 {{ formatDateTime(getSubscribedDate(user)) }}
               </td>
             </tr>
@@ -381,7 +395,7 @@ onMounted(() => {
       <div v-if="totalPages > 1" class="flex justify-end gap-2">
         <button
           type="button"
-          class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          class="btn-secondary"
           :disabled="isLoadingMobile || currentPage <= 1"
           aria-label="Previous page"
           @click="goToPage(currentPage - 1)"
@@ -390,7 +404,7 @@ onMounted(() => {
         </button>
         <button
           type="button"
-          class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          class="btn-secondary"
           :disabled="isLoadingMobile || currentPage >= totalPages"
           aria-label="Next page"
           @click="goToPage(currentPage + 1)"

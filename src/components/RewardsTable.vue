@@ -123,10 +123,10 @@ function isRewardBusy(reward) {
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-[26px] border border-emerald-200/70 bg-white/95 shadow-[0_20px_60px_-42px_rgba(20,83,45,0.5)]">
+  <div class="table-shell">
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-slate-200 text-sm">
-        <thead class="bg-[linear-gradient(135deg,rgba(236,253,245,1),rgba(240,253,244,0.85))] text-left text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800/70">
+        <thead class="table-head">
           <tr>
             <th class="px-4 py-3">ID</th>
             <th class="px-4 py-3">Game</th>
@@ -140,28 +140,28 @@ function isRewardBusy(reward) {
             <th class="w-[17rem] min-w-[17rem] px-4 py-3 text-center">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-emerald-100/80">
+        <tbody class="table-body">
           <tr v-if="isLoading">
-            <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-emerald-900/55">
+            <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-slate-500">
               Loading rewards...
             </td>
           </tr>
           <tr v-else-if="rewards.length === 0">
-            <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-emerald-900/55">
+            <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-slate-500">
               No rewards found.
             </td>
           </tr>
           <tr
             v-for="reward in rewards"
             :key="reward.id"
-            class="hover:bg-emerald-50/70"
+            class="table-row"
           >
             <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
               {{ reward.id }}
             </td>
             <td class="min-w-40 px-4 py-3">
-              <p class="font-semibold text-emerald-950">{{ getGameName(reward) }}</p>
-              <p class="mt-0.5 text-xs text-emerald-900/50">ID {{ reward.game_id }}</p>
+              <p class="font-semibold text-slate-950">{{ getGameName(reward) }}</p>
+              <p class="mt-0.5 text-xs text-slate-500">ID {{ reward.game_id }}</p>
             </td>
             <td class="px-4 py-3">
               <div class="h-14 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
@@ -192,7 +192,7 @@ function isRewardBusy(reward) {
             <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950">
               {{ reward.holdings }}
             </td>
-            <td class="whitespace-nowrap px-4 py-3 font-bold text-emerald-950">
+            <td class="whitespace-nowrap px-4 py-3 font-bold text-slate-950">
               {{ formatProbability(reward) }}
             </td>
             <td class="whitespace-nowrap px-4 py-3">
@@ -207,7 +207,7 @@ function isRewardBusy(reward) {
                 {{ isRewardActive(reward) ? "Active" : "Inactive" }}
               </span>
             </td>
-            <td class="whitespace-nowrap px-4 py-3 text-emerald-900/60">
+            <td class="whitespace-nowrap px-4 py-3 text-slate-500">
               {{ formatDateTime(reward.created_at) }}
             </td>
             <td class="w-[17rem] min-w-[17rem] px-4 py-3">
