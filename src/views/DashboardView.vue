@@ -4,6 +4,7 @@ import { RouterLink, useRouter } from "vue-router";
 import { apiRequest, resolveAssetUrl } from "../api/http";
 import { extractUsermobileRecords } from "../api/response";
 import AddGameModal from "../components/AddGameModal.vue";
+import ConfirmActionModal from "../components/ConfirmActionModal.vue";
 import { useAuthStore } from "../stores/auth";
 
 const router = useRouter();
@@ -20,6 +21,8 @@ const isEditGameModalOpen = ref(false);
 const selectedGame = ref(null);
 const deletingGameId = ref(null);
 const editingGameId = ref(null);
+const pendingDeleteGame = ref(null);
+const deleteGameError = ref("");
 const failedImageUrls = ref(new Set());
 
 function extractDashboardCollections(payload) {
@@ -202,29 +205,40 @@ async function openEditGameModal(game) {
   }
 }
 
-async function handleDeleteGame(game) {
+function handleDeleteGame(game) {
   if (!authStore.canAccess("games.delete")) {
     loadError.value = "Only Super Admin users can delete games.";
     return;
   }
 
-  const shouldDelete = window.confirm(`Delete "${game.name}"?`);
-  if (!shouldDelete) {
+  pendingDeleteGame.value = game;
+  deleteGameError.value = "";
+  loadError.value = "";
+}
+
+function closeDeleteGameConfirmation() {
+  if (deletingGameId.value) {
     return;
   }
 
-  const password = window.prompt(`Enter your password to delete "${game.name}":`);
-  if (password === null) {
+  pendingDeleteGame.value = null;
+  deleteGameError.value = "";
+}
+
+async function confirmDeleteGame(password) {
+  const game = pendingDeleteGame.value;
+  if (!game) {
     return;
   }
 
   const trimmedPassword = password.trim();
   if (!trimmedPassword) {
-    loadError.value = "Password is required to delete a game.";
+    deleteGameError.value = "Password is required to delete a game.";
     return;
   }
 
   deletingGameId.value = game.id;
+  deleteGameError.value = "";
   loadError.value = "";
 
   try {
@@ -236,8 +250,9 @@ async function handleDeleteGame(game) {
     featuredGames.value = featuredGames.value.filter((item) => item.id !== game.id);
     newGames.value = newGames.value.filter((item) => item.id !== game.id);
     recentSubscribers.value = recentSubscribers.value.filter((item) => String(item.game_id) !== String(game.game_id));
+    pendingDeleteGame.value = null;
   } catch (error) {
-    loadError.value = error?.message || "Could not delete game";
+    deleteGameError.value = error?.message || "Could not delete game";
   } finally {
     deletingGameId.value = null;
   }
@@ -640,6 +655,21 @@ onMounted(() => {
       mode="edit"
       @close="isEditGameModalOpen = false"
       @updated="handleGameUpdated"
+    />
+
+    <ConfirmActionModal
+      :open="Boolean(pendingDeleteGame)"
+      title="Delete game"
+      :message="`Enter your password to delete ${pendingDeleteGame?.name || 'this game'}. This action cannot be undone.`"
+      confirm-label="Delete"
+      variant="danger"
+      requires-password
+      password-label="Current password"
+      password-placeholder="Enter your password"
+      :error-message="deleteGameError"
+      :is-submitting="Boolean(deletingGameId)"
+      @close="closeDeleteGameConfirmation"
+      @confirm="confirmDeleteGame"
     />
   </div>
 </template>

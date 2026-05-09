@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { apiRequest } from "../api/http";
 import AddAdminModal from "../components/AddAdminModal.vue";
+import ConfirmActionModal from "../components/ConfirmActionModal.vue";
 import { useAuthStore } from "../stores/auth";
 
 const authStore = useAuthStore();
@@ -15,6 +16,8 @@ const isAddAdminModalOpen = ref(false);
 const isEditAdminModalOpen = ref(false);
 const selectedAdmin = ref(null);
 const deletingAdminId = ref(null);
+const pendingDeleteAdmin = ref(null);
+const deleteAdminError = ref("");
 
 function formatDateTime(isoString) {
   if (!isoString) {
@@ -108,29 +111,40 @@ async function openEditAdminModal(admin) {
   isEditAdminModalOpen.value = true;
 }
 
-async function handleDeleteAdmin(admin) {
+function handleDeleteAdmin(admin) {
   if (!authStore.canAccess("admins.delete")) {
     loadError.value = "Only Super Admin users can delete admin users.";
     return;
   }
 
-  const shouldDelete = window.confirm(`Delete admin "${admin.username}"?`);
-  if (!shouldDelete) {
+  pendingDeleteAdmin.value = admin;
+  deleteAdminError.value = "";
+  loadError.value = "";
+}
+
+function closeDeleteAdminConfirmation() {
+  if (deletingAdminId.value) {
     return;
   }
 
-  const password = window.prompt(`Enter your password to delete admin "${admin.username}":`);
-  if (password === null) {
+  pendingDeleteAdmin.value = null;
+  deleteAdminError.value = "";
+}
+
+async function confirmDeleteAdmin(password) {
+  const admin = pendingDeleteAdmin.value;
+  if (!admin) {
     return;
   }
 
   const trimmedPassword = password.trim();
   if (!trimmedPassword) {
-    loadError.value = "Password is required to delete an admin user.";
+    deleteAdminError.value = "Password is required to delete an admin user.";
     return;
   }
 
   deletingAdminId.value = admin.id;
+  deleteAdminError.value = "";
   loadError.value = "";
 
   try {
@@ -139,8 +153,9 @@ async function handleDeleteAdmin(admin) {
       body: JSON.stringify({ password: trimmedPassword }),
     });
     admins.value = admins.value.filter((item) => item.id !== admin.id);
+    pendingDeleteAdmin.value = null;
   } catch (error) {
-    loadError.value = error?.message || "Could not delete admin user";
+    deleteAdminError.value = error?.message || "Could not delete admin user";
   } finally {
     deletingAdminId.value = null;
   }
@@ -299,6 +314,21 @@ onMounted(() => {
       mode="edit"
       @close="isEditAdminModalOpen = false"
       @updated="handleAdminUpdated"
+    />
+
+    <ConfirmActionModal
+      :open="Boolean(pendingDeleteAdmin)"
+      title="Delete admin user"
+      :message="`Enter your password to delete admin ${pendingDeleteAdmin?.username || 'this user'}. This action cannot be undone.`"
+      confirm-label="Delete"
+      variant="danger"
+      requires-password
+      password-label="Current password"
+      password-placeholder="Enter your password"
+      :error-message="deleteAdminError"
+      :is-submitting="Boolean(deletingAdminId)"
+      @close="closeDeleteAdminConfirmation"
+      @confirm="confirmDeleteAdmin"
     />
   </div>
 </template>
