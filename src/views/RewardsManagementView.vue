@@ -530,14 +530,17 @@ function openStatusConfirmation(reward) {
     return;
   }
 
-  const nextStatusLabel = isRewardActive(reward) ? "deactivate" : "activate";
+  if (isRewardActive(reward)) {
+    return;
+  }
+
   confirmAction.open = true;
   confirmAction.type = "status";
   confirmAction.reward = reward;
-  confirmAction.title = `${nextStatusLabel === "activate" ? "Activate" : "Deactivate"} reward`;
-  confirmAction.message = `Are you sure you want to ${nextStatusLabel} "${reward.prize}"?`;
-  confirmAction.confirmLabel = nextStatusLabel === "activate" ? "Activate" : "Deactivate";
-  confirmAction.variant = nextStatusLabel === "activate" ? "primary" : "danger";
+  confirmAction.title = "Activate reward";
+  confirmAction.message = `Are you sure you want to activate "${reward.prize}"?`;
+  confirmAction.confirmLabel = "Activate";
+  confirmAction.variant = "primary";
 }
 
 function openDeleteConfirmation(reward) {
@@ -568,9 +571,8 @@ async function confirmPendingAction() {
 
   try {
     if (confirmAction.type === "status") {
-      const nextIsActive = isRewardActive(reward) ? 0 : 1;
-      await updateRewardStatus(reward.id, nextIsActive);
-      statusMessage.value = `Reward ${nextIsActive === 1 ? "activated" : "deactivated"} successfully.`;
+      await updateRewardStatus(reward.id, 1);
+      statusMessage.value = "Reward activated successfully.";
       await loadRewards(pagination.value.page);
     } else if (confirmAction.type === "delete") {
       await deleteReward(reward.id);

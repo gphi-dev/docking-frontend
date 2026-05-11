@@ -48,8 +48,7 @@ function formatProbability(reward) {
     return "0.00%";
   }
 
-  const percentage = numericProbability > 1 ? numericProbability : numericProbability * 100;
-  return `${percentage.toFixed(2)}%`;
+  return `${numericProbability.toFixed(2)}%`;
 }
 
 function formatDateTime(isoString) {
@@ -96,37 +95,37 @@ function isRewardBusy(reward) {
 <template>
   <div class="table-shell">
     <div class="table-scroll">
-      <table class="responsive-table min-w-[78rem] table-fixed">
+      <table class="responsive-table w-full min-w-[62rem] table-fixed">
         <colgroup>
-          <col class="w-28" />
+          <col class="w-24" />
+          <col class="w-36" />
           <col class="w-44" />
-          <col class="w-52" />
+          <col class="w-24" />
           <col class="w-28" />
-          <col class="w-32" />
-          <col class="w-28" />
+          <col class="w-24" />
           <col class="w-44" />
-          <col class="w-56" />
+          <col class="w-28" />
         </colgroup>
         <thead class="table-head">
           <tr>
-            <th class="px-4 py-3">Picture</th>
-            <th class="px-4 py-3">Prize</th>
-            <th class="px-4 py-3">Description</th>
-            <th class="px-4 py-3">Holdings</th>
-            <th class="px-4 py-3">Probability</th>
-            <th class="px-4 py-3">Status</th>
-            <th class="px-4 py-3">Created At</th>
-            <th class="px-4 py-3 text-center">Actions</th>
+            <th class="px-3 py-3">Picture</th>
+            <th class="px-3 py-3">Prize</th>
+            <th class="px-3 py-3">Description</th>
+            <th class="px-3 py-3">Holdings</th>
+            <th class="px-3 py-3">Probability</th>
+            <th class="px-3 py-3">Status</th>
+            <th class="px-3 py-3">Created At</th>
+            <th class="px-3 py-3 text-right">Actions</th>
           </tr>
         </thead>
         <tbody class="table-body">
           <tr v-if="isLoading">
-            <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-slate-500">
+            <td :colspan="tableColumnCount" class="px-3 py-10 text-center text-slate-500">
               Loading rewards...
             </td>
           </tr>
           <tr v-else-if="rewards.length === 0">
-            <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-slate-500">
+            <td :colspan="tableColumnCount" class="px-3 py-10 text-center text-slate-500">
               No rewards found.
             </td>
           </tr>
@@ -135,8 +134,8 @@ function isRewardBusy(reward) {
             :key="reward.id"
             class="table-row"
           >
-            <td class="px-4 py-3" data-label="Picture">
-              <div class="h-14 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+            <td class="px-3 py-3" data-label="Picture">
+              <div class="h-12 w-16 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
                 <img
                   v-if="getPictureSrc(reward) && !hasPictureFailed(reward.picture)"
                   :src="getPictureSrc(reward)"
@@ -153,23 +152,23 @@ function isRewardBusy(reward) {
                 </div>
               </div>
             </td>
-            <td class="min-w-40 px-4 py-3 font-semibold text-slate-950" data-label="Prize">
+            <td class="px-3 py-3 font-semibold text-slate-950" data-label="Prize">
               {{ reward.prize }}
             </td>
-            <td class="max-w-72 px-4 py-3 text-slate-600" data-label="Description">
+            <td class="px-3 py-3 text-slate-600" data-label="Description">
               <p class="line-clamp-2" :title="getDescription(reward)">
                 {{ getDescription(reward) }}
               </p>
             </td>
-            <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950" data-label="Holdings">
+            <td class="whitespace-nowrap px-3 py-3 font-semibold text-slate-950" data-label="Holdings">
               {{ reward.holdings }}
             </td>
-            <td class="whitespace-nowrap px-4 py-3 font-bold text-slate-950" data-label="Probability">
+            <td class="whitespace-nowrap px-3 py-3 font-bold text-slate-950" data-label="Probability">
               {{ formatProbability(reward) }}
             </td>
-            <td class="whitespace-nowrap px-4 py-3" data-label="Status">
+            <td class="whitespace-nowrap px-3 py-3" data-label="Status">
               <span
-                class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset"
+                class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ring-inset"
                 :class="
                   isRewardActive(reward)
                     ? 'bg-lime-400/15 text-lime-900 ring-lime-500/20'
@@ -179,47 +178,50 @@ function isRewardBusy(reward) {
                 {{ isRewardActive(reward) ? "Active" : "Inactive" }}
               </span>
             </td>
-            <td class="whitespace-nowrap px-4 py-3 text-slate-500" data-label="Created At">
+            <td class="px-3 py-3 leading-5 text-slate-500" data-label="Created At">
               {{ formatDateTime(reward.created_at) }}
             </td>
-            <td class="px-4 py-3" data-actions data-label="Actions">
-              <div class="table-actions ml-auto grid w-full grid-cols-2 gap-2">
+            <td class="px-3 py-3" data-actions data-label="Actions">
+              <div class="table-actions reward-actions ml-auto flex w-20 flex-col items-stretch gap-1.5">
                 <button
                   type="button"
-                  class="inline-flex h-9 items-center justify-center rounded-xl border border-emerald-200 bg-white px-3 text-xs font-semibold text-emerald-800 shadow-sm ring-1 ring-inset ring-white/70 transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="action-button action-button-view"
+                  :aria-label="`View ${reward.prize || 'reward'}`"
                   :disabled="isRewardBusy(reward)"
+                  :title="`View ${reward.prize || 'reward'}`"
                   @click="emit('view', reward)"
                 >
-                  {{ isRewardBusy(reward) ? "Loading..." : "View" }}
+                  {{ isRewardBusy(reward) ? "Wait" : "View" }}
                 </button>
                 <button
                   v-if="canUpdate"
                   type="button"
-                  class="inline-flex h-9 items-center justify-center rounded-xl border border-sky-200 bg-white px-3 text-xs font-semibold text-sky-700 shadow-sm ring-1 ring-inset ring-white/70 transition hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="action-button action-button-edit"
+                  :aria-label="`Edit ${reward.prize || 'reward'}`"
                   :disabled="isRewardBusy(reward)"
+                  :title="`Edit ${reward.prize || 'reward'}`"
                   @click="emit('edit', reward)"
                 >
                   Edit
                 </button>
                 <button
-                  v-if="canUpdate"
+                  v-if="canUpdate && !isRewardActive(reward)"
                   type="button"
-                  class="inline-flex h-9 items-center justify-center rounded-xl border bg-white px-3 text-xs font-semibold shadow-sm ring-1 ring-inset ring-white/70 transition disabled:cursor-not-allowed disabled:opacity-60"
-                  :class="
-                    isRewardActive(reward)
-                      ? 'border-amber-200 text-amber-700 hover:border-amber-300 hover:bg-amber-50'
-                      : 'border-lime-200 text-lime-800 hover:border-lime-300 hover:bg-lime-50'
-                  "
+                  class="action-button action-button-activate"
+                  :aria-label="`Activate ${reward.prize || 'reward'}`"
                   :disabled="isRewardBusy(reward)"
+                  :title="`Activate ${reward.prize || 'reward'}`"
                   @click="emit('status', reward)"
                 >
-                  {{ isRewardActive(reward) ? "Deactivate" : "Activate" }}
+                  Activate
                 </button>
                 <button
                   v-if="canDelete"
                   type="button"
-                  class="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 shadow-sm ring-1 ring-inset ring-white/70 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  class="action-button action-button-delete"
+                  :aria-label="`Delete ${reward.prize || 'reward'}`"
                   :disabled="isRewardBusy(reward)"
+                  :title="`Delete ${reward.prize || 'reward'}`"
                   @click="emit('delete', reward)"
                 >
                   Delete

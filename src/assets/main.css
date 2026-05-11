@@ -103,6 +103,26 @@ body {
     @apply inline-flex items-center justify-center rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm transition-colors duration-200 hover:border-rose-300 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
+  .action-button {
+    @apply inline-flex h-7 min-w-[2.5rem] items-center justify-center rounded-md border bg-white px-2 text-[11px] font-bold leading-none shadow-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .action-button-view {
+    @apply border-emerald-200 text-emerald-800 hover:border-emerald-300 hover:bg-emerald-50 focus-visible:ring-emerald-500;
+  }
+
+  .action-button-edit {
+    @apply border-sky-200 text-sky-700 hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-sky-500;
+  }
+
+  .action-button-activate {
+    @apply border-lime-200 text-lime-800 hover:border-lime-300 hover:bg-lime-50 focus-visible:ring-lime-500;
+  }
+
+  .action-button-delete {
+    @apply border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 focus-visible:ring-rose-500;
+  }
+
   .form-control {
     @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none ring-emerald-500/20 transition-colors duration-200 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70;
   }
@@ -177,7 +197,11 @@ body {
     }
 
     .responsive-table .table-actions {
-      @apply ml-0 grid w-full grid-cols-2 gap-2;
+      @apply ml-0 flex w-full flex-wrap justify-start gap-2;
+    }
+
+    .responsive-table .reward-actions {
+      @apply w-24 flex-col items-stretch gap-1.5;
     }
 
     .responsive-table td[colspan] {

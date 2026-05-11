@@ -97,8 +97,7 @@ function formatProbability(reward) {
     return "0.00%";
   }
 
-  const percentage = numericProbability > 1 ? numericProbability : numericProbability * 100;
-  return `${percentage.toFixed(2)}%`;
+  return `${numericProbability.toFixed(2)}%`;
 }
 
 function resetForm() {

@@ -81,7 +81,7 @@ export const permissionCatalog = [
         action: "Update rewards",
         method: "PUT/PATCH",
         endpoint: "/api/rewards/:id",
-        description: "Edit rewards and activate or deactivate reward records.",
+        description: "Edit rewards and activate reward records.",
       },
       {
         key: "rewards.delete",
