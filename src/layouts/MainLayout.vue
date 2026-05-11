@@ -232,7 +232,7 @@ watch(
         </button>
       </header>
 
-      <main class="flex-1 px-4 py-6 md:px-8 md:py-8">
+      <main class="min-w-0 flex-1 overflow-x-hidden px-4 py-6 md:px-8 md:py-8">
         <RouterView v-if="canRenderCurrentRoute" />
       </main>
     </div>

@@ -215,8 +215,8 @@ onMounted(() => {
     </div>
 
     <div class="table-shell">
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <div class="table-scroll">
+        <table class="responsive-table">
           <thead class="table-head">
             <tr>
               <th class="px-4 py-3">Username</th>
@@ -234,10 +234,10 @@ onMounted(() => {
               <td colspan="5" class="px-4 py-10 text-center text-slate-500">No admin users found.</td>
             </tr>
             <tr v-for="admin in admins" :key="admin.id" class="table-row">
-              <td class="px-4 py-3 font-semibold text-slate-950">
+              <td class="px-4 py-3 font-semibold text-slate-950" data-label="Username">
                 {{ admin.username }}
               </td>
-              <td class="whitespace-nowrap px-4 py-3">
+              <td class="whitespace-nowrap px-4 py-3" data-label="Role">
                 <span
                   class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset"
                   :class="
@@ -249,7 +249,7 @@ onMounted(() => {
                   {{ getAdminRoleName(admin) }}
                 </span>
               </td>
-              <td class="whitespace-nowrap px-4 py-3">
+              <td class="whitespace-nowrap px-4 py-3" data-label="Status">
                 <span
                   class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset"
                   :class="
@@ -261,11 +261,11 @@ onMounted(() => {
                   {{ formatStatus(admin.status) }}
                 </span>
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-slate-500">
+              <td class="whitespace-nowrap px-4 py-3 text-slate-500" data-label="Created">
                 {{ formatDateTime(admin.created_at) }}
               </td>
-              <td class="px-4 py-3 text-right">
-                <div class="flex justify-end gap-2">
+              <td class="px-4 py-3 text-right" data-actions data-label="Actions">
+                <div class="table-actions flex justify-end gap-2">
                   <span
                     v-if="!authStore.canAccess('admins.update') && !authStore.canAccess('admins.delete')"
                     class="text-sm text-emerald-900/40"

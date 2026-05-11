@@ -332,8 +332,8 @@ watch(
           class="table-shell relative"
           :class="{ 'opacity-70': isSubscribersLoading }"
         >
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <div class="table-scroll">
+            <table class="responsive-table">
               <thead class="table-head">
                 <tr>
                   <th class="px-4 py-3">Phone</th>
@@ -349,16 +349,16 @@ watch(
                   </td>
                 </tr>
                 <tr v-for="subscriber in displayedSubscribers" :key="subscriber.id" class="table-row">
-                  <td class="whitespace-nowrap px-4 py-3 font-medium text-slate-950">
+                  <td class="whitespace-nowrap px-4 py-3 font-medium text-slate-950" data-label="Phone">
                     {{ getSubscriberPhone(subscriber) }}
                   </td>
-                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
+                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900" data-label="Nickname">
                     {{ getSubscriberNickname(subscriber) }}
                   </td>
-                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950">
+                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950" data-label="Points">
                     {{ formatSubscriberPoints(subscriber) }}
                   </td>
-                  <td class="whitespace-nowrap px-4 py-3 text-slate-500">
+                  <td class="whitespace-nowrap px-4 py-3 text-slate-500" data-label="Subscribed">
                     {{ formatDateTime(subscriber.created_at) }}
                   </td>
                 </tr>

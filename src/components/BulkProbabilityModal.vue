@@ -178,52 +178,54 @@ watch(
           </div>
 
           <div class="overflow-hidden rounded-xl border border-slate-200">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
-              <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th class="px-4 py-3">Reward</th>
-                  <th class="px-4 py-3">Holdings</th>
-                  <th class="px-4 py-3">Current</th>
-                  <th class="px-4 py-3">New Probability</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100">
-                <tr v-if="activeRewards.length === 0">
-                  <td colspan="4" class="px-4 py-8 text-center text-slate-500">
-                    No active rewards for this game.
-                  </td>
-                </tr>
-                <tr
-                  v-for="reward in activeRewards"
-                  :key="reward.id"
-                >
-                  <td class="px-4 py-3">
-                    <p class="font-semibold text-slate-950">{{ reward.prize }}</p>
-                    <p class="mt-0.5 line-clamp-1 text-xs text-slate-500">{{ reward.description || "No description" }}</p>
-                  </td>
-                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-700">
-                    {{ reward.holdings }}
-                  </td>
-                  <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-700">
-                    {{ getInitialProbability(reward) }}%
-                  </td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      <input
-                        v-model="draftProbabilities[reward.id]"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        class="w-32 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-950 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
-                        :disabled="isSubmitting"
-                      />
-                      <span class="text-sm font-semibold text-slate-500">%</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-scroll">
+              <table class="responsive-table">
+                <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th class="px-4 py-3">Reward</th>
+                    <th class="px-4 py-3">Holdings</th>
+                    <th class="px-4 py-3">Current</th>
+                    <th class="px-4 py-3">New Probability</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <tr v-if="activeRewards.length === 0">
+                    <td colspan="4" class="px-4 py-8 text-center text-slate-500">
+                      No active rewards for this game.
+                    </td>
+                  </tr>
+                  <tr
+                    v-for="reward in activeRewards"
+                    :key="reward.id"
+                  >
+                    <td class="px-4 py-3" data-label="Reward">
+                      <p class="font-semibold text-slate-950">{{ reward.prize }}</p>
+                      <p class="mt-0.5 line-clamp-1 text-xs text-slate-500">{{ reward.description || "No description" }}</p>
+                    </td>
+                    <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-700" data-label="Holdings">
+                      {{ reward.holdings }}
+                    </td>
+                    <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-700" data-label="Current">
+                      {{ getInitialProbability(reward) }}%
+                    </td>
+                    <td class="px-4 py-3" data-label="New Probability">
+                      <div class="flex items-center gap-2">
+                        <input
+                          v-model="draftProbabilities[reward.id]"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          class="w-32 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-950 outline-none ring-emerald-500/25 transition focus:border-emerald-500 focus:ring-2"
+                          :disabled="isSubmitting"
+                        />
+                        <span class="text-sm font-semibold text-slate-500">%</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <p v-if="errorMessage" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">

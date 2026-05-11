@@ -340,8 +340,8 @@ onMounted(() => {
     </div>
 
     <div class="table-shell">
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <div class="table-scroll">
+        <table class="responsive-table">
           <thead class="table-head">
             <tr>
               <th class="px-4 py-3">Phone Number</th>
@@ -360,24 +360,24 @@ onMounted(() => {
               <td :colspan="tableColumnCount" class="px-4 py-10 text-center text-slate-500">{{ emptyUsersMessage }}</td>
             </tr>
             <tr v-for="user in displayedUsersmobile" :key="user.id" class="table-row">
-              <td class="px-4 py-3 font-semibold text-slate-900">
+              <td class="px-4 py-3 font-semibold text-slate-900" data-label="Phone Number">
                 {{ getPhoneNumber(user) }}
               </td>
-              <td class="px-4 py-3 font-semibold text-slate-900">
+              <td class="px-4 py-3 font-semibold text-slate-900" data-label="Nickname">
                 {{ getNickname(user) }}
               </td>
-              <td class="px-4 py-3 text-slate-600">
+              <td class="px-4 py-3 text-slate-600" data-label="Game ID">
                 <span class="badge-emerald">
                   {{ user.game_id }}
                 </span>
               </td>
-              <td class="px-4 py-3 font-semibold text-slate-950">
+              <td class="px-4 py-3 font-semibold text-slate-950" data-label="Game Name">
                 {{ getGameName(user) }}
               </td>
-              <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950">
+              <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950" data-label="Points">
                 {{ formatUserScore(user) }}
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-slate-500">
+              <td class="whitespace-nowrap px-4 py-3 text-slate-500" data-label="Subscribed Date">
                 {{ formatDateTime(getSubscribedDate(user)) }}
               </td>
             </tr>

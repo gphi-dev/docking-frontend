@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import { resolveAssetUrl } from "../api/http";
 
 const props = defineProps({
@@ -32,28 +32,7 @@ const props = defineProps({
 const emit = defineEmits(["view", "edit", "status", "delete"]);
 
 const failedPictureUrls = ref(new Set());
-const tableColumnCount = 10;
-
-const gameNameById = computed(() => {
-  const entries = new Map();
-
-  props.games.forEach((game) => {
-    const label = game?.name || game?.title || "";
-    if (!label) {
-      return;
-    }
-
-    if (game?.id !== undefined && game?.id !== null) {
-      entries.set(String(game.id), label);
-    }
-
-    if (game?.game_id !== undefined && game?.game_id !== null) {
-      entries.set(String(game.game_id), label);
-    }
-  });
-
-  return entries;
-});
+const tableColumnCount = 8;
 
 function isRewardActive(reward) {
   return reward?.is_active === 1 || reward?.is_active === true || reward?.is_active === "1";
@@ -89,14 +68,6 @@ function formatDateTime(isoString) {
   }).format(date);
 }
 
-function getGameName(reward) {
-  if (reward?.game?.name) {
-    return reward.game.name;
-  }
-
-  return gameNameById.value.get(String(reward?.game_id ?? "")) || `Game ${reward?.game_id ?? "-"}`;
-}
-
 function getPictureSrc(reward) {
   return resolveAssetUrl(String(reward?.picture || "").trim());
 }
@@ -124,12 +95,20 @@ function isRewardBusy(reward) {
 
 <template>
   <div class="table-shell">
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <div class="table-scroll">
+      <table class="responsive-table min-w-[78rem] table-fixed">
+        <colgroup>
+          <col class="w-28" />
+          <col class="w-44" />
+          <col class="w-52" />
+          <col class="w-28" />
+          <col class="w-32" />
+          <col class="w-28" />
+          <col class="w-44" />
+          <col class="w-56" />
+        </colgroup>
         <thead class="table-head">
           <tr>
-            <th class="px-4 py-3">ID</th>
-            <th class="px-4 py-3">Game</th>
             <th class="px-4 py-3">Picture</th>
             <th class="px-4 py-3">Prize</th>
             <th class="px-4 py-3">Description</th>
@@ -137,7 +116,7 @@ function isRewardBusy(reward) {
             <th class="px-4 py-3">Probability</th>
             <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3">Created At</th>
-            <th class="w-[17rem] min-w-[17rem] px-4 py-3 text-center">Actions</th>
+            <th class="px-4 py-3 text-center">Actions</th>
           </tr>
         </thead>
         <tbody class="table-body">
@@ -156,14 +135,7 @@ function isRewardBusy(reward) {
             :key="reward.id"
             class="table-row"
           >
-            <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
-              {{ reward.id }}
-            </td>
-            <td class="min-w-40 px-4 py-3">
-              <p class="font-semibold text-slate-950">{{ getGameName(reward) }}</p>
-              <p class="mt-0.5 text-xs text-slate-500">ID {{ reward.game_id }}</p>
-            </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3" data-label="Picture">
               <div class="h-14 w-20 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                 <img
                   v-if="getPictureSrc(reward) && !hasPictureFailed(reward.picture)"
@@ -181,21 +153,21 @@ function isRewardBusy(reward) {
                 </div>
               </div>
             </td>
-            <td class="min-w-40 px-4 py-3 font-semibold text-slate-950">
+            <td class="min-w-40 px-4 py-3 font-semibold text-slate-950" data-label="Prize">
               {{ reward.prize }}
             </td>
-            <td class="max-w-72 px-4 py-3 text-slate-600">
+            <td class="max-w-72 px-4 py-3 text-slate-600" data-label="Description">
               <p class="line-clamp-2" :title="getDescription(reward)">
                 {{ getDescription(reward) }}
               </p>
             </td>
-            <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950">
+            <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-950" data-label="Holdings">
               {{ reward.holdings }}
             </td>
-            <td class="whitespace-nowrap px-4 py-3 font-bold text-slate-950">
+            <td class="whitespace-nowrap px-4 py-3 font-bold text-slate-950" data-label="Probability">
               {{ formatProbability(reward) }}
             </td>
-            <td class="whitespace-nowrap px-4 py-3">
+            <td class="whitespace-nowrap px-4 py-3" data-label="Status">
               <span
                 class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset"
                 :class="
@@ -207,11 +179,11 @@ function isRewardBusy(reward) {
                 {{ isRewardActive(reward) ? "Active" : "Inactive" }}
               </span>
             </td>
-            <td class="whitespace-nowrap px-4 py-3 text-slate-500">
+            <td class="whitespace-nowrap px-4 py-3 text-slate-500" data-label="Created At">
               {{ formatDateTime(reward.created_at) }}
             </td>
-            <td class="w-[17rem] min-w-[17rem] px-4 py-3">
-              <div class="ml-auto grid w-[15rem] grid-cols-2 gap-2">
+            <td class="px-4 py-3" data-actions data-label="Actions">
+              <div class="table-actions ml-auto grid w-full grid-cols-2 gap-2">
                 <button
                   type="button"
                   class="inline-flex h-9 items-center justify-center rounded-xl border border-emerald-200 bg-white px-3 text-xs font-semibold text-emerald-800 shadow-sm ring-1 ring-inset ring-white/70 transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"

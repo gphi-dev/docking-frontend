@@ -611,8 +611,8 @@ onMounted(() => {
         </div>
       </div>
       <div class="table-shell">
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <div class="table-scroll">
+          <table class="responsive-table">
             <thead class="table-head">
               <tr>
                 <th class="px-4 py-3">Phone Number</th>
@@ -636,29 +636,29 @@ onMounted(() => {
                 :key="subscriber.id"
                 class="table-row"
               >
-                <td class="px-4 py-3">
+                <td class="px-4 py-3" data-label="Phone Number">
                   <span class="font-semibold text-slate-950">
                     {{ subscriber.phone || "—" }}
                   </span>
                 </td>
-                <td class="px-4 py-3 font-semibold text-slate-900">
+                <td class="px-4 py-3 font-semibold text-slate-900" data-label="Nickname">
                   {{ getSubscriberNickname(subscriber) }}
                 </td>
-                <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
+                <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900" data-label="Points">
                   {{ formatSubscriberPoints(subscriber) }}
                 </td>
-                <td class="px-4 py-3 text-emerald-900/65">
+                <td class="px-4 py-3 text-emerald-900/65" data-label="Game ID">
                   <span class="badge-emerald">
                     {{ subscriber.game_id || "—" }}
                   </span>
                 </td>
-                <td class="px-4 py-3 font-semibold text-slate-950">
+                <td class="px-4 py-3 font-semibold text-slate-950" data-label="Game Name">
                   {{ getSubscriberGameName(subscriber) }}
                 </td>
-                <td class="whitespace-nowrap px-4 py-3 text-slate-600">
+                <td class="whitespace-nowrap px-4 py-3 text-slate-600" data-label="Verified">
                   {{ isVerifiedSubscriber(subscriber) ? "Yes" : "No" }}
                 </td>
-                <td class="whitespace-nowrap px-4 py-3 text-slate-500">
+                <td class="whitespace-nowrap px-4 py-3 text-slate-500" data-label="Created">
                   {{ formatDateTime(subscriber.created_at) }}
                 </td>
               </tr>

@@ -434,8 +434,8 @@ onMounted(() => {
         </p>
 
         <div class="table-shell min-w-0">
-          <div class="overflow-x-auto">
-            <table class="w-full table-fixed divide-y divide-slate-200 text-sm">
+          <div class="table-scroll">
+            <table class="responsive-table table-fixed">
               <thead class="table-head">
                 <tr>
                   <th class="w-[8.5rem] px-4 py-3">Access</th>
@@ -458,7 +458,7 @@ onMounted(() => {
                   :key="permission.action_key"
                   class="table-row"
                 >
-                  <td class="px-4 py-3">
+                  <td class="px-4 py-3" data-label="Access">
                     <label class="flex cursor-pointer flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
                       <input
                         type="checkbox"
@@ -472,10 +472,10 @@ onMounted(() => {
                       </span>
                     </label>
                   </td>
-                  <td class="break-words px-4 py-3 font-semibold text-emerald-950">
+                  <td class="break-words px-4 py-3 font-semibold text-emerald-950" data-label="Action">
                     {{ permission.action_name }}
                   </td>
-                  <td class="break-words px-4 py-3 text-emerald-900/60">
+                  <td class="break-words px-4 py-3 text-emerald-900/60" data-label="Description">
                     {{ permission.description }}
                   </td>
                 </tr>
