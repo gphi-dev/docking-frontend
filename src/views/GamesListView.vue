@@ -86,7 +86,7 @@ function getGameRouteParam(game) {
 }
 
 function getCoverImage(game) {
-  return game?.background_url || game?.image_url || "";
+  return game?.image_url || game?.background_url || "";
 }
 
 function getThumbnailImage(game) {
